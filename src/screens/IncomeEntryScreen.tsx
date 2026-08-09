@@ -47,6 +47,9 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
   const [incomeTypes, setIncomeTypes] = useState<TransactionHead[]>([]);
   const [loadingIncomeTypes, setLoadingIncomeTypes] = useState(false);
 
+  const [incomeSubTypes, setIncomeSubTypes] = useState<TransactionHead[]>([]);
+  const [loadingIncomeSubTypes, setLoadingIncomeSubTypes] = useState(false);
+
   // Fetch Income Types
   const fetchIncomeTypes = async () => {
     try {
@@ -72,6 +75,38 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       );
     } finally {
       setLoadingIncomeTypes(false);
+    }
+  };
+
+  // Fetch Income Sub types
+  const fetchIncomeSubTypes = async (primaryHeadCode: string) => {
+    try {
+      setLoadingIncomeSubTypes(true);
+
+      const response = await fetch(
+        `http://192.168.0.248:8080/api/v1/transaction-heads?transactionType=INCOME&primaryHeadCode=${encodeURIComponent(primaryHeadCode)}&level=TWO`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+
+      const data: TransactionHead[] = await response.json();
+
+      console.log('Income Sub Entry API Response:', data);
+
+      setIncomeSubTypes(data);
+    } catch (error) {
+      console.error('Failed to fetch Income Sub Entries:', error);
+
+      setIncomeSubTypes([]);
+
+      Alert.alert(
+        'Error',
+        'Unable to load Income Sub Entries. Please try again.'
+      );
+    } finally {
+      setLoadingIncomeSubTypes(false);
     }
   };
 
@@ -208,9 +243,24 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                   : 'Select Income Type'
               }
               options={incomeTypes.map((item) => item.txnName)}
+              // onSelect={(val) => {
+              //   setIncomeType(val);
+              //   setTypeError('');
+              // }}
               onSelect={(val) => {
+                const selectedType = incomeTypes.find(
+                  (item) => item.txnName === val
+                );
+
                 setIncomeType(val);
+                setIncomeSubtype('');
+                setIncomeSubTypes([]);
                 setTypeError('');
+                setSubtypeError('');
+
+                if (selectedType?.txnCode) {
+                  fetchIncomeSubTypes(selectedType.txnCode);
+                }
               }}
               visible={typeDropdownVisible}
               setVisible={setTypeDropdownVisible}
@@ -219,10 +269,14 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
 
             {/* Income Subtype Dropdown */}
             <CustomDropdown
-              label="Income Subtype"
+              label="Income Sub Entry"
               value={incomeSubtype}
-              placeholder={incomeType ? "Select Subtype" : "First select Income Type"}
-              options={incomeType ? incomeData[incomeType] : []}
+              placeholder={
+                loadingIncomeSubTypes
+                  ? 'Loading Income Sub Entries...'
+                  : 'Select Income Sub Entry'
+              }
+              options={incomeSubTypes.map((item) => item.txnName)}
               onSelect={(val) => {
                 setIncomeSubtype(val);
                 setSubtypeError('');
@@ -230,7 +284,6 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
               visible={subtypeDropdownVisible}
               setVisible={setSubtypeDropdownVisible}
               error={subtypeError}
-              disabled={!incomeType}
             />
 
             {/* Amount Input */}
