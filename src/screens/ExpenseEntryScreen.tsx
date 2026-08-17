@@ -17,6 +17,13 @@ interface ExpenseEntryScreenProps {
   onBack: () => void;
 }
 
+interface TransactionHead {
+  txnCode: string;
+  txnName: string;
+}
+
+const [submitting, setSubmitting] = useState(false);
+
 // Custom dropdown data mapping for Expenses
 const expenseData: Record<string, string[]> = {
   'Infrastructure & Development': ['Road Construction', 'Street Lighting', 'Water Supply Maintenance', 'Sanitation Works'],
@@ -28,10 +35,18 @@ const expenseData: Record<string, string[]> = {
 export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
   // Input fields
   const [expenseType, setExpenseType] = useState('');
+  const [expenseTypeCode, setExpenseTypeCode] = useState('');
   const [expenseSubtype, setExpenseSubtype] = useState('');
+  const [expenseSubtypeCode, setExpenseSubtypeCode] = useState('');
   const [amount, setAmount] = useState('');
   const [remarks, setRemarks] = useState('');
   const [refId, setRefId] = useState('');
+
+  const [expenseTypes, setExpenseTypes] = useState<TransactionHead[]>([]);
+  const [expenseSubTypes, setExpenseSubTypes] = useState<TransactionHead[]>([]);
+
+  const [loadingExpenseTypes, setLoadingExpenseTypes] = useState(false);
+  const [loadingExpenseSubTypes, setLoadingExpenseSubTypes] = useState(false);
 
   // Dropdown visibility
   const [typeDropdownVisible, setTypeDropdownVisible] = useState(false);
@@ -52,11 +67,124 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
+  // Fetch Expense Type values
+  const fetchExpenseTypes = async () => {
+    try {
+      setLoadingExpenseTypes(true);
+
+      const response = await fetch(
+        'http://192.168.0.248:8080/api/v1/transaction-heads?transactionType=EXPENSE&level=1'
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+
+      const data: TransactionHead[] = await response.json();
+
+      console.log('Expense Type API Response:', data);
+
+      setExpenseTypes(data);
+    } catch (error) {
+      console.error('Failed to fetch Expense Types:', error);
+
+      setExpenseTypes([]);
+
+      Alert.alert(
+        'Error',
+        'Unable to load Expense Types. Please try again.'
+      );
+    } finally {
+      setLoadingExpenseTypes(false);
+    }
+  };
+
+  // Fetch Expense Sub type values
+  const fetchExpenseSubTypes = async (precedingHeadCode: string) => {
+    try {
+      setLoadingExpenseSubTypes(true);
+
+      const response = await fetch(
+        `http://192.168.0.248:8080/api/v1/transaction-heads?transactionType=EXPENSE&precedingHeadCode=${encodeURIComponent(precedingHeadCode)}&level=2`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+
+      const data: TransactionHead[] = await response.json();
+
+      console.log('Expense Sub Type API Response:', data);
+
+      setExpenseSubTypes(data);
+    } catch (error) {
+      console.error('Failed to fetch Expense Sub Types:', error);
+
+      setExpenseSubTypes([]);
+
+      Alert.alert(
+        'Error',
+        'Unable to load Expense Sub Types. Please try again.'
+      );
+    } finally {
+      setLoadingExpenseSubTypes(false);
+    }
+  };
+
+  // Submit the expense on Final click of Submit button from the pop-up
+  const submitExpenseEntry = async () => {
+    try {
+      setSubmitting(true);
+
+      const payload = {
+        transactionType: 'EXPENSE',
+        transactionHeadCode: expenseSubtypeCode,
+        date: new Date().toISOString().split('T')[0],
+        amount: parseFloat(amount),
+        reference: refId,
+        remark: remarks,
+      };
+
+      console.log('Submitting Expense Entry:', payload);
+
+      const response = await fetch(
+        'http://192.168.0.248:8080/api/v1/transactions',
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      console.log('Expense Entry Submit Response:', data);
+
+      return data;
+    } catch (error) {
+      console.error('Failed to submit Expense Entry:', error);
+      throw error;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Update subtypes when type changes
   useEffect(() => {
     setExpenseSubtype('');
     setSubtypeError('');
   }, [expenseType]);
+
+  useEffect(() => {
+    fetchExpenseTypes();
+  }, []);
 
   const triggerToast = (message: string) => {
     setToastMessage(message);
@@ -110,18 +238,51 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
     }
   };
 
-  const handleFinalSubmit = () => {
-    setShowConfirmModal(false);
-    
-    // Clear form inputs
-    setExpenseType('');
-    setExpenseSubtype('');
-    setAmount('');
-    setRemarks('');
-    setRefId('');
-    
-    // Trigger Success Toast
-    triggerToast('Success! Expense entry has been recorded successfully.');
+  // const handleFinalSubmit = () => {
+  //   setShowConfirmModal(false);
+
+  //   // Clear form inputs
+  //   setExpenseType('');
+  //   setExpenseSubtype('');
+  //   setAmount('');
+  //   setRemarks('');
+  //   setRefId('');
+
+  //   // Trigger Success Toast
+  //   triggerToast('Success! Expense entry has been recorded successfully.');
+  // };
+  const handleFinalSubmit = async () => {
+    try {
+      await submitExpenseEntry();
+
+      // Close confirmation popup only after successful API call
+      setShowConfirmModal(false);
+
+      // Clear form
+      setExpenseType('');
+      setExpenseTypeCode('');
+      setExpenseSubtype('');
+      setExpenseSubtypeCode('');
+      setExpenseSubTypes([]);
+      setAmount('');
+      setRemarks('');
+      setRefId('');
+
+      // Clear errors
+      setTypeError('');
+      setSubtypeError('');
+      setAmountError('');
+
+      // Show success message
+      triggerToast(
+        'Success! Expense entry has been recorded successfully.'
+      );
+    } catch (error) {
+      Alert.alert(
+        'Submission Failed',
+        'Unable to submit the Expense Entry. Please try again.'
+      );
+    }
   };
 
   return (
@@ -154,16 +315,34 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
 
           {/* Form */}
           <View style={styles.formCard}>
-            
+
             {/* Expense Type Dropdown */}
             <CustomDropdown
               label="Expense Type"
               value={expenseType}
-              placeholder="Select Expense Type"
-              options={Object.keys(expenseData)}
+              placeholder={
+                loadingExpenseTypes
+                  ? 'Loading Expense Types...'
+                  : 'Select Expense Type'
+              }
+              options={expenseTypes.map((item) => item.txnName)}
               onSelect={(val) => {
+                const selectedType = expenseTypes.find(
+                  (item) => item.txnName === val
+                );
+
                 setExpenseType(val);
+                setExpenseTypeCode(selectedType?.txnCode ?? '');
+
+                setExpenseSubtype('');
+                setExpenseSubTypes([]);
+
                 setTypeError('');
+                setSubtypeError('');
+
+                if (selectedType?.txnCode) {
+                  fetchExpenseSubTypes(selectedType.txnCode);
+                }
               }}
               visible={typeDropdownVisible}
               setVisible={setTypeDropdownVisible}
@@ -172,18 +351,30 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
 
             {/* Expense Subtype Dropdown */}
             <CustomDropdown
-              label="Expense Subtype"
+              label="Expense Sub Type"
               value={expenseSubtype}
-              placeholder={expenseType ? "Select Subtype" : "First select Expense Type"}
-              options={expenseType ? expenseData[expenseType] : []}
+              placeholder={
+                loadingExpenseSubTypes
+                  ? 'Loading Expense Sub Types...'
+                  : 'Select Expense Sub Type'
+              }
+              options={expenseSubTypes.map((item) => item.txnName)}
+              // onSelect={(val) => {
+              //   setExpenseSubtype(val);
+              //   setSubtypeError('');
+              // }}
               onSelect={(val) => {
+                const selectedSubType = expenseSubTypes.find(
+                  (item) => item.txnName === val
+                );
+
                 setExpenseSubtype(val);
+                setExpenseSubtypeCode(selectedSubType?.txnCode ?? '');
                 setSubtypeError('');
               }}
               visible={subtypeDropdownVisible}
               setVisible={setSubtypeDropdownVisible}
               error={subtypeError}
-              disabled={!expenseType}
             />
 
             {/* Amount Input */}

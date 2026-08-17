@@ -23,6 +23,8 @@ interface TransactionHead {
   txnName: string;
 }
 
+const [submitting, setSubmitting] = useState(false);
+
 // Custom dropdown data mapping
 const incomeData: Record<string, string[]> = {
   'Tax Collection': ['Property Tax', 'Water Tax', 'Professional Tax', 'Land Revenue'],
@@ -35,6 +37,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
   // Input fields
   const [incomeType, setIncomeType] = useState('');
   const [incomeSubtype, setIncomeSubtype] = useState('');
+  const [incomeSubtypeCode, setIncomeSubtypeCode] = useState('');
   const [amount, setAmount] = useState('');
   const [remarks, setRemarks] = useState('');
   const [refId, setRefId] = useState('');
@@ -56,7 +59,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setLoadingIncomeTypes(true);
 
       const response = await fetch(
-        'http://192.168.0.248:8080/api/v1/transaction-heads?transactionType=INCOME&level=ONE'
+        'http://192.168.0.248:8080/api/v1/transaction-heads?transactionType=INCOME&level=1'
       );
 
       if (!response.ok) {
@@ -84,7 +87,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setLoadingIncomeSubTypes(true);
 
       const response = await fetch(
-        `http://192.168.0.248:8080/api/v1/transaction-heads?transactionType=INCOME&primaryHeadCode=${encodeURIComponent(primaryHeadCode)}&level=TWO`
+        `http://192.168.0.248:8080/api/v1/transaction-heads?transactionType=INCOME&primaryHeadCode=${encodeURIComponent(primaryHeadCode)}&level=2`
       );
 
       if (!response.ok) {
@@ -107,6 +110,51 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       );
     } finally {
       setLoadingIncomeSubTypes(false);
+    }
+  };
+
+  // Submit Income Entry
+  const submitIncomeEntry = async () => {
+    try {
+      setSubmitting(true);
+
+      const payload = {
+        transactionType: 'INCOME',
+        transactionHeadCode: incomeSubtypeCode,
+        date: new Date().toISOString().split('T')[0],
+        amount: parseFloat(amount),
+        reference: refId,
+        remark: remarks,
+      };
+
+      console.log('Submitting Income Entry:', payload);
+
+      const response = await fetch(
+        'http://192.168.0.248:8080/api/v1/transactions',
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      console.log('Income Entry Submit Response:', data);
+
+      return data;
+    } catch (error) {
+      console.error('Failed to submit Income Entry:', error);
+      throw error;
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -188,18 +236,51 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
     }
   };
 
-  const handleFinalSubmit = () => {
-    setShowConfirmModal(false);
+  // const handleFinalSubmit = () => {
+  //   setShowConfirmModal(false);
 
-    // Clear form inputs
-    setIncomeType('');
-    setIncomeSubtype('');
-    setAmount('');
-    setRemarks('');
-    setRefId('');
+  //   // Clear form inputs
+  //   setIncomeType('');
+  //   setIncomeSubtype('');
+  //   setAmount('');
+  //   setRemarks('');
+  //   setRefId('');
 
-    // Trigger Success Toast
-    triggerToast('Success! Income entry has been recorded successfully.');
+  //   // Trigger Success Toast
+  //   triggerToast('Success! Income entry has been recorded successfully.');
+  // };
+
+  // A final submit from pop-up which calls API and submit the Income Entry
+  const handleFinalSubmit = async () => {
+    try {
+      await submitIncomeEntry();
+
+      // Close confirmation popup only after successful API call
+      setShowConfirmModal(false);
+
+      // Clear form inputs
+      setIncomeType('');
+      setIncomeSubtype('');
+      setIncomeSubtypeCode('');
+      setAmount('');
+      setRemarks('');
+      setRefId('');
+
+      // Clear validation errors
+      setTypeError('');
+      setSubtypeError('');
+      setAmountError('');
+
+      // Show success message
+      triggerToast(
+        'Success! Income entry has been recorded successfully.'
+      );
+    } catch (error) {
+      Alert.alert(
+        'Submission Failed',
+        'Unable to submit the Income Entry. Please try again.'
+      );
+    }
   };
 
   return (
@@ -277,8 +358,17 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                   : 'Select Income Sub Entry'
               }
               options={incomeSubTypes.map((item) => item.txnName)}
+              // onSelect={(val) => {
+              //   setIncomeSubtype(val);
+              //   setSubtypeError('');
+              // }}
               onSelect={(val) => {
+                const selectedSubType = incomeSubTypes.find(
+                  (item) => item.txnName === val
+                );
+
                 setIncomeSubtype(val);
+                setIncomeSubtypeCode(selectedSubType?.txnCode ?? '');
                 setSubtypeError('');
               }}
               visible={subtypeDropdownVisible}
