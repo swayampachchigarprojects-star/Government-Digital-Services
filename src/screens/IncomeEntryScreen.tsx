@@ -12,6 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useLanguage } from '../../src/contexts/LanguageContext';
 
 interface IncomeEntryScreenProps {
   onBack: () => void;
@@ -23,8 +24,6 @@ interface TransactionHead {
   txnName: string;
 }
 
-const [submitting, setSubmitting] = useState(false);
-
 // Custom dropdown data mapping
 const incomeData: Record<string, string[]> = {
   'Tax Collection': ['Property Tax', 'Water Tax', 'Professional Tax', 'Land Revenue'],
@@ -34,6 +33,8 @@ const incomeData: Record<string, string[]> = {
 };
 
 export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
+  const { t } = useLanguage();
+
   // Input fields
   const [incomeType, setIncomeType] = useState('');
   const [incomeSubtype, setIncomeSubtype] = useState('');
@@ -41,6 +42,9 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
   const [amount, setAmount] = useState('');
   const [remarks, setRemarks] = useState('');
   const [refId, setRefId] = useState('');
+
+  // Submit API state
+  const [submitting, setSubmitting] = useState(false);
 
   // Dropdown visibility - this is for static value visibility
   const [typeDropdownVisible, setTypeDropdownVisible] = useState(false);
@@ -73,8 +77,8 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       console.error('Failed to fetch Income Types:', error);
 
       Alert.alert(
-        'Error',
-        'Unable to load Income Types. Please try again.'
+        t('Error'),
+        t('Unable to load Income Types. Please try again.')
       );
     } finally {
       setLoadingIncomeTypes(false);
@@ -105,8 +109,8 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setIncomeSubTypes([]);
 
       Alert.alert(
-        'Error',
-        'Unable to load Income Sub Entries. Please try again.'
+        t('Error'),
+        t('Unable to load Income Sub Entries. Please try again.')
       );
     } finally {
       setLoadingIncomeSubTypes(false);
@@ -203,14 +207,14 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
   const validateForm = () => {
     let isValid = true;
     if (!incomeType) {
-      setTypeError('Income Type is required');
+      setTypeError(t('Income Type is required'));
       isValid = false;
     } else {
       setTypeError('');
     }
 
     if (!incomeSubtype) {
-      setSubtypeError('Income Subtype is required');
+      setSubtypeError(t('Income Subtype is required'));
       isValid = false;
     } else {
       setSubtypeError('');
@@ -218,10 +222,10 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
 
     const amtVal = parseFloat(amount);
     if (!amount) {
-      setAmountError('Amount is required');
+      setAmountError(t('Amount is required'));
       isValid = false;
     } else if (isNaN(amtVal) || amtVal <= 0) {
-      setAmountError('Amount must be a positive number greater than 0');
+      setAmountError(t('Amount must be a positive number greater than 0'));
       isValid = false;
     } else {
       setAmountError('');
@@ -235,20 +239,6 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setShowConfirmModal(true);
     }
   };
-
-  // const handleFinalSubmit = () => {
-  //   setShowConfirmModal(false);
-
-  //   // Clear form inputs
-  //   setIncomeType('');
-  //   setIncomeSubtype('');
-  //   setAmount('');
-  //   setRemarks('');
-  //   setRefId('');
-
-  //   // Trigger Success Toast
-  //   triggerToast('Success! Income entry has been recorded successfully.');
-  // };
 
   // A final submit from pop-up which calls API and submit the Income Entry
   const handleFinalSubmit = async () => {
@@ -273,12 +263,12 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
 
       // Show success message
       triggerToast(
-        'Success! Income entry has been recorded successfully.'
+        t('Success! Income entry has been recorded successfully.')
       );
     } catch (error) {
       Alert.alert(
-        'Submission Failed',
-        'Unable to submit the Income Entry. Please try again.'
+        t('Submission Failed'),
+        t('Unable to submit the Income Entry. Please try again.')
       );
     }
   };
@@ -299,7 +289,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
           <MaterialIcons name="arrow-back" size={24} color="#173B63" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Income Entry</Text>
+          <Text style={styles.headerTitle}>{t('Income Entry')}</Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>
@@ -316,69 +306,67 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
 
             {/* Income Type Dropdown */}
             <CustomDropdown
-              label="Income Type"
-              value={incomeType}
+              label={t('Income Type')}
+              value={incomeType ? t(incomeType) : ''}
               placeholder={
                 loadingIncomeTypes
-                  ? 'Loading Income Types...'
-                  : 'Select Income Type'
+                  ? t('Loading Income Types...')
+                  : t('Select Income Type')
               }
-              options={incomeTypes.map((item) => item.txnName)}
-              // onSelect={(val) => {
-              //   setIncomeType(val);
-              //   setTypeError('');
-              // }}
+              options={incomeTypes.map((item) => t(item.txnName))}
               onSelect={(val) => {
                 const selectedType = incomeTypes.find(
-                  (item) => item.txnName === val
+                  (item) => t(item.txnName) === val
                 );
 
-                setIncomeType(val);
-                setIncomeSubtype('');
-                setIncomeSubTypes([]);
-                setTypeError('');
-                setSubtypeError('');
+                if (selectedType) {
+                  setIncomeType(selectedType.txnName);
+                  setIncomeSubtype('');
+                  setIncomeSubTypes([]);
+                  setTypeError('');
+                  setSubtypeError('');
 
-                if (selectedType?.txnCode) {
-                  fetchIncomeSubTypes(selectedType.txnCode);
+                  if (selectedType.txnCode) {
+                    fetchIncomeSubTypes(selectedType.txnCode);
+                  }
                 }
               }}
               visible={typeDropdownVisible}
               setVisible={setTypeDropdownVisible}
               error={typeError}
+              modalTitle={t('Select Income Type Modal Title')}
             />
 
             {/* Income Subtype Dropdown */}
             <CustomDropdown
-              label="Income Sub Entry"
-              value={incomeSubtype}
+              label={t('Income Sub Entry')}
+              value={incomeSubtype ? t(incomeSubtype) : ''}
               placeholder={
                 loadingIncomeSubTypes
-                  ? 'Loading Income Sub Entries...'
-                  : 'Select Income Sub Entry'
+                  ? t('Loading Income Sub Entries...')
+                  : t('Select Income Sub Entry')
               }
-              options={incomeSubTypes.map((item) => item.txnName)}
-              // onSelect={(val) => {
-              //   setIncomeSubtype(val);
-              //   setSubtypeError('');
-              // }}
+              options={incomeSubTypes.map((item) => t(item.txnName))}
               onSelect={(val) => {
                 const selectedSubType = incomeSubTypes.find(
-                  (item) => item.txnName === val
+                  (item) => t(item.txnName) === val
                 );
 
-                setIncomeSubtype(val);
-                setIncomeSubtypeCode(selectedSubType?.txnCode ?? '');
-                setSubtypeError('');
+                if (selectedSubType) {
+                  setIncomeSubtype(selectedSubType.txnName);
+                  setIncomeSubtypeCode(selectedSubType.txnCode ?? '');
+                  setSubtypeError('');
+                }
               }}
               visible={subtypeDropdownVisible}
               setVisible={setSubtypeDropdownVisible}
               error={subtypeError}
+              modalTitle={t('Select Income Sub Entry Modal Title')}
             />
 
             {/* Amount Input */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Amount (₹)</Text>
+              <Text style={styles.label}>{t('Amount (₹)')}</Text>
               <TextInput
                 style={[
                   styles.input,
@@ -387,7 +375,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                 ]}
                 value={amount}
                 onChangeText={handleAmountChange}
-                placeholder="Enter amount (e.g. 1500.50)"
+                placeholder={t('Enter amount (e.g. 1500.50)')}
                 placeholderTextColor="#8B96A5"
                 keyboardType="decimal-pad"
                 onFocus={() => setIsAmountFocused(true)}
@@ -399,7 +387,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
             {/* Remarks Text Area */}
             <View style={styles.formGroup}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Remarks (Optional)</Text>
+                <Text style={styles.label}>{t('Remarks (Optional)')}</Text>
                 <Text style={styles.counterText}>{remarks.length} / 300</Text>
               </View>
               <TextInput
@@ -410,7 +398,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                 ]}
                 value={remarks}
                 onChangeText={(text) => setRemarks(text.substring(0, 300))}
-                placeholder="Add contextual notes or remarks..."
+                placeholder={t('Add contextual notes or remarks...')}
                 placeholderTextColor="#8B96A5"
                 multiline={true}
                 numberOfLines={4}
@@ -424,7 +412,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
             {/* Reference ID Input */}
             <View style={styles.formGroup}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Reference ID (Optional)</Text>
+                <Text style={styles.label}>{t('Reference ID (Optional)')}</Text>
                 <Text style={styles.counterText}>{refId.length} / 100</Text>
               </View>
               <TextInput
@@ -434,7 +422,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                 ]}
                 value={refId}
                 onChangeText={(text) => setRefId(text.substring(0, 100))}
-                placeholder="e.g. TXN-10824982"
+                placeholder={t('e.g. TXN-10824982')}
                 placeholderTextColor="#8B96A5"
                 maxLength={100}
                 autoCapitalize="characters"
@@ -449,7 +437,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
               onPress={handleSubmitPress}
               activeOpacity={0.85}
             >
-              <Text style={styles.submitBtnText}>Submit Entry</Text>
+              <Text style={styles.submitBtnText}>{t('Submit Entry')}</Text>
             </TouchableOpacity>
 
           </View>
@@ -465,31 +453,31 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Confirm Income Entry</Text>
-            <Text style={styles.modalSubtitle}>Please verify the transaction details below before committing to database.</Text>
+            <Text style={styles.modalTitle}>{t('Confirm Income Entry')}</Text>
+            <Text style={styles.modalSubtitle}>{t('Please verify the transaction details below before committing to database.')}</Text>
 
             <View style={styles.modalDetails}>
               <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>Income Type</Text>
-                <Text style={styles.modalValue}>{incomeType}</Text>
+                <Text style={styles.modalLabel}>{t('Income Type')}</Text>
+                <Text style={styles.modalValue}>{t(incomeType)}</Text>
               </View>
               <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>Income Subtype</Text>
-                <Text style={styles.modalValue}>{incomeSubtype}</Text>
+                <Text style={styles.modalLabel}>{t('Income Subtype')}</Text>
+                <Text style={styles.modalValue}>{t(incomeSubtype)}</Text>
               </View>
               <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>Amount</Text>
+                <Text style={styles.modalLabel}>{t('Amount')}</Text>
                 <Text style={styles.modalAmount}>₹ {parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
               </View>
               {!!remarks && (
                 <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>Remarks</Text>
+                  <Text style={styles.modalLabel}>{t('Remarks')}</Text>
                   <Text style={styles.modalValue}>{remarks}</Text>
                 </View>
               )}
               {!!refId && (
                 <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>Reference ID</Text>
+                  <Text style={styles.modalLabel}>{t('Reference ID')}</Text>
                   <Text style={styles.modalValue}>{refId}</Text>
                 </View>
               )}
@@ -501,14 +489,14 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                 onPress={() => setShowConfirmModal(false)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.confirmBtn}
                 onPress={handleFinalSubmit}
                 activeOpacity={0.8}
               >
-                <Text style={styles.confirmBtnText}>Submit</Text>
+                <Text style={styles.confirmBtnText}>{t('Submit')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -529,6 +517,7 @@ interface CustomDropdownProps {
   setVisible: (visible: boolean) => void;
   error?: string;
   disabled?: boolean;
+  modalTitle: string;
 }
 
 function CustomDropdown({
@@ -541,6 +530,7 @@ function CustomDropdown({
   setVisible,
   error,
   disabled,
+  modalTitle,
 }: CustomDropdownProps) {
   return (
     <View style={styles.dropdownContainer}>
@@ -577,7 +567,7 @@ function CustomDropdown({
         >
           <View style={styles.dropdownModalContent}>
             <View style={styles.dropdownModalHeader}>
-              <Text style={styles.dropdownModalTitle}>Select {label}</Text>
+              <Text style={styles.dropdownModalTitle}>{modalTitle}</Text>
               <TouchableOpacity onPress={() => setVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <MaterialIcons name="close" size={24} color="#173B63" />
               </TouchableOpacity>

@@ -13,12 +13,14 @@ import {
   Image,
   StatusBar,
 } from 'react-native';
+import { useLanguage } from '../../src/contexts/LanguageContext';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
 }
 
 export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -40,21 +42,21 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     const trimmedPassword = password.trim();
 
     if (!trimmedEmail && !trimmedPassword) {
-      errEmail = 'Email address is required';
-      errPassword = 'Password is required';
-      errGeneral = 'Please enter your email address and password to sign in.';
+      errEmail = t('Email address is required');
+      errPassword = t('Password is required');
+      errGeneral = t('Please enter your email address and password to sign in.');
       isValid = false;
     } else {
       if (!trimmedEmail) {
-        errEmail = 'Email address is required';
+        errEmail = t('Email address is required');
         isValid = false;
       } else if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
-        errEmail = 'Please enter a valid email address';
+        errEmail = t('Please enter a valid email address');
         isValid = false;
       }
 
       if (!trimmedPassword) {
-        errPassword = 'Password is required';
+        errPassword = t('Password is required');
         isValid = false;
       }
     }
@@ -69,13 +71,13 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const handleLogin = () => {
     if (!validateForm()) {
       if (!email.trim() && !password.trim()) {
-        Alert.alert('Validation Error', 'Please enter your email address and password.');
+        Alert.alert(t('Validation Error'), t('Please enter your email address and password.'));
       } else if (!email.trim()) {
-        Alert.alert('Validation Error', 'Please enter your email address.');
+        Alert.alert(t('Validation Error'), t('Please enter your email address.'));
       } else if (!password.trim()) {
-        Alert.alert('Validation Error', 'Please enter your password.');
+        Alert.alert(t('Validation Error'), t('Please enter your password.'));
       } else if (emailError) {
-        Alert.alert('Validation Error', emailError);
+        Alert.alert(t('Validation Error'), emailError);
       }
       return;
     }
@@ -88,7 +90,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   };
 
   const handleContactSupport = () => {
-    Alert.alert('Support', 'Redirecting to Government Digital Services Support Center.');
+    Alert.alert(t('Support'), t('Redirecting to Government Digital Services Support Center.'));
   };
 
   return (
@@ -103,20 +105,11 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.container}>
-            {/* Header section with Badge */}
-            {/* <View style={styles.header}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>GS</Text>
-              </View>
-              <Text style={styles.headerTitle}>Government Digital Services</Text>
-              <Text style={styles.headerSubtitle}>Secure Citizen Login Portal</Text>
-            </View> */}
-
             {/* Card Container */}
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Government Digital Services</Text>
+              <Text style={styles.sectionTitle}>{t('Government Digital Services')}</Text>
               <Text style={styles.sectionSubtitle}>
-                Sign in to access your services securely.
+                {t('Sign in to access your services securely.')}
               </Text>
 
               {/* General Error Banner */}
@@ -128,7 +121,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
               {/* Form */}
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Email Address</Text>
+                <Text style={styles.label}>{t('Email Address')}</Text>
                 <TextInput
                   style={[
                     styles.input,
@@ -141,7 +134,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     if (emailError) setEmailError('');
                     if (generalError) setGeneralError('');
                   }}
-                  placeholder="Enter your email address"
+                  placeholder={t('Enter your email address')}
                   placeholderTextColor="#8B96A5"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -155,7 +148,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Password</Text>
+                <Text style={styles.label}>{t('Password')}</Text>
                 <View style={styles.passwordContainer}>
                   <TextInput
                     style={[
@@ -170,7 +163,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                       if (passwordError) setPasswordError('');
                       if (generalError) setGeneralError('');
                     }}
-                    placeholder="Enter your password"
+                    placeholder={t('Enter your password')}
                     placeholderTextColor="#8B96A5"
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
@@ -184,7 +177,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                     activeOpacity={0.7}
                   >
                     <Text style={styles.togglePasswordText}>
-                      {showPassword ? 'Hide' : 'Show'}
+                      {showPassword ? t('Hide') : t('Show')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -199,13 +192,13 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 onPress={handleLogin}
                 activeOpacity={0.85}
               >
-                <Text style={styles.loginBtnText}>Sign In</Text>
+                <Text style={styles.loginBtnText}>{t('Sign In')}</Text>
               </TouchableOpacity>
 
               {/* Divider */}
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>OR</Text>
+                <Text style={styles.dividerText}>{t('OR')}</Text>
                 <View style={styles.dividerLine} />
               </View>
 
@@ -220,19 +213,19 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   style={styles.googleIcon}
                   resizeMode="contain"
                 />
-                <Text style={styles.googleBtnText}>Continue with Google</Text>
+                <Text style={styles.googleBtnText}>{t('Continue with Google')}</Text>
               </TouchableOpacity>
 
               {/* Footer Links */}
               <View style={styles.footerContainer}>
                 <Text style={styles.footerText}>
-                  Need assistance?{' '}
+                  {t('Need assistance?')}{' '}
                   <Text style={styles.footerLink} onPress={handleContactSupport}>
-                    Contact Support
+                    {t('Contact Support')}
                   </Text>
                 </Text>
                 <Text style={[styles.footerText, styles.craftedText]}>
-                  Crafted by hands
+                  {t('Crafted by hands')}
                 </Text>
               </View>
             </View>

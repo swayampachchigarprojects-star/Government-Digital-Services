@@ -12,6 +12,7 @@ import {
   Modal,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useLanguage } from '../../src/contexts/LanguageContext';
 
 interface ExpenseEntryScreenProps {
   onBack: () => void;
@@ -22,8 +23,6 @@ interface TransactionHead {
   txnName: string;
 }
 
-const [submitting, setSubmitting] = useState(false);
-
 // Custom dropdown data mapping for Expenses
 const expenseData: Record<string, string[]> = {
   'Infrastructure & Development': ['Road Construction', 'Street Lighting', 'Water Supply Maintenance', 'Sanitation Works'],
@@ -33,6 +32,8 @@ const expenseData: Record<string, string[]> = {
 };
 
 export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
+  const { t } = useLanguage();
+
   // Input fields
   const [expenseType, setExpenseType] = useState('');
   const [expenseTypeCode, setExpenseTypeCode] = useState('');
@@ -41,6 +42,8 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
   const [amount, setAmount] = useState('');
   const [remarks, setRemarks] = useState('');
   const [refId, setRefId] = useState('');
+
+  const [submitting, setSubmitting] = useState(false);
 
   const [expenseTypes, setExpenseTypes] = useState<TransactionHead[]>([]);
   const [expenseSubTypes, setExpenseSubTypes] = useState<TransactionHead[]>([]);
@@ -91,8 +94,8 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       setExpenseTypes([]);
 
       Alert.alert(
-        'Error',
-        'Unable to load Expense Types. Please try again.'
+        t('Error'),
+        t('Unable to load Expense Types. Please try again.')
       );
     } finally {
       setLoadingExpenseTypes(false);
@@ -123,8 +126,8 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       setExpenseSubTypes([]);
 
       Alert.alert(
-        'Error',
-        'Unable to load Expense Sub Types. Please try again.'
+        t('Error'),
+        t('Unable to load Expense Sub Types. Please try again.')
       );
     } finally {
       setLoadingExpenseSubTypes(false);
@@ -205,14 +208,14 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
   const validateForm = () => {
     let isValid = true;
     if (!expenseType) {
-      setTypeError('Expense Type is required');
+      setTypeError(t('Expense Type is required'));
       isValid = false;
     } else {
       setTypeError('');
     }
 
     if (!expenseSubtype) {
-      setSubtypeError('Expense Subtype is required');
+      setSubtypeError(t('Expense Subtype is required'));
       isValid = false;
     } else {
       setSubtypeError('');
@@ -220,10 +223,10 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
 
     const amtVal = parseFloat(amount);
     if (!amount) {
-      setAmountError('Amount is required');
+      setAmountError(t('Amount is required'));
       isValid = false;
     } else if (isNaN(amtVal) || amtVal <= 0) {
-      setAmountError('Amount must be a positive number greater than 0');
+      setAmountError(t('Amount must be a positive number greater than 0'));
       isValid = false;
     } else {
       setAmountError('');
@@ -275,12 +278,12 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
 
       // Show success message
       triggerToast(
-        'Success! Expense entry has been recorded successfully.'
+        t('Success! Expense entry has been recorded successfully.')
       );
     } catch (error) {
       Alert.alert(
-        'Submission Failed',
-        'Unable to submit the Expense Entry. Please try again.'
+        t('Submission Failed'),
+        t('Unable to submit the Expense Entry. Please try again.')
       );
     }
   };
@@ -301,7 +304,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
           <MaterialIcons name="arrow-back" size={24} color="#173B63" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Expense Entry</Text>
+          <Text style={styles.headerTitle}>{t('Expense Entry')}</Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>
@@ -318,68 +321,68 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
 
             {/* Expense Type Dropdown */}
             <CustomDropdown
-              label="Expense Type"
-              value={expenseType}
+              label={t('Expense Type')}
+              value={expenseType ? t(expenseType) : ''}
               placeholder={
                 loadingExpenseTypes
-                  ? 'Loading Expense Types...'
-                  : 'Select Expense Type'
+                  ? t('Loading Expense Types...')
+                  : t('Select Expense Type')
               }
-              options={expenseTypes.map((item) => item.txnName)}
+              options={expenseTypes.map((item) => t(item.txnName))}
               onSelect={(val) => {
                 const selectedType = expenseTypes.find(
-                  (item) => item.txnName === val
+                  (item) => t(item.txnName) === val
                 );
 
-                setExpenseType(val);
-                setExpenseTypeCode(selectedType?.txnCode ?? '');
+                if (selectedType) {
+                  setExpenseType(selectedType.txnName);
+                  setExpenseTypeCode(selectedType.txnCode ?? '');
+                  setExpenseSubtype('');
+                  setExpenseSubTypes([]);
+                  setTypeError('');
+                  setSubtypeError('');
 
-                setExpenseSubtype('');
-                setExpenseSubTypes([]);
-
-                setTypeError('');
-                setSubtypeError('');
-
-                if (selectedType?.txnCode) {
-                  fetchExpenseSubTypes(selectedType.txnCode);
+                  if (selectedType.txnCode) {
+                    fetchExpenseSubTypes(selectedType.txnCode);
+                  }
                 }
               }}
               visible={typeDropdownVisible}
               setVisible={setTypeDropdownVisible}
               error={typeError}
+              modalTitle={t('Select Expense Type Modal Title')}
             />
 
             {/* Expense Subtype Dropdown */}
             <CustomDropdown
-              label="Expense Sub Type"
-              value={expenseSubtype}
+              label={t('Expense Sub Type')}
+              value={expenseSubtype ? t(expenseSubtype) : ''}
               placeholder={
                 loadingExpenseSubTypes
-                  ? 'Loading Expense Sub Types...'
-                  : 'Select Expense Sub Type'
+                  ? t('Loading Expense Sub Types...')
+                  : t('Select Expense Sub Type')
               }
-              options={expenseSubTypes.map((item) => item.txnName)}
-              // onSelect={(val) => {
-              //   setExpenseSubtype(val);
-              //   setSubtypeError('');
-              // }}
+              options={expenseSubTypes.map((item) => t(item.txnName))}
               onSelect={(val) => {
                 const selectedSubType = expenseSubTypes.find(
-                  (item) => item.txnName === val
+                  (item) => t(item.txnName) === val
                 );
 
-                setExpenseSubtype(val);
-                setExpenseSubtypeCode(selectedSubType?.txnCode ?? '');
-                setSubtypeError('');
+                if (selectedSubType) {
+                  setExpenseSubtype(selectedSubType.txnName);
+                  setExpenseSubtypeCode(selectedSubType.txnCode ?? '');
+                  setSubtypeError('');
+                }
               }}
               visible={subtypeDropdownVisible}
               setVisible={setSubtypeDropdownVisible}
               error={subtypeError}
+              modalTitle={t('Select Expense Sub Type Modal Title')}
             />
 
             {/* Amount Input */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Amount (₹)</Text>
+              <Text style={styles.label}>{t('Amount (₹)')}</Text>
               <TextInput
                 style={[
                   styles.input,
@@ -388,7 +391,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
                 ]}
                 value={amount}
                 onChangeText={handleAmountChange}
-                placeholder="Enter amount (e.g. 1200.00)"
+                placeholder={t('Enter amount (e.g. 1200.00)')}
                 placeholderTextColor="#8B96A5"
                 keyboardType="decimal-pad"
                 onFocus={() => setIsAmountFocused(true)}
@@ -400,7 +403,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
             {/* Remarks Text Area */}
             <View style={styles.formGroup}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Remarks (Optional)</Text>
+                <Text style={styles.label}>{t('Remarks (Optional)')}</Text>
                 <Text style={styles.counterText}>{remarks.length} / 300</Text>
               </View>
               <TextInput
@@ -411,7 +414,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
                 ]}
                 value={remarks}
                 onChangeText={(text) => setRemarks(text.substring(0, 300))}
-                placeholder="Add contextual notes or remarks..."
+                placeholder={t('Add contextual notes or remarks...')}
                 placeholderTextColor="#8B96A5"
                 multiline={true}
                 numberOfLines={4}
@@ -425,7 +428,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
             {/* Reference ID Input */}
             <View style={styles.formGroup}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>Reference ID (Optional)</Text>
+                <Text style={styles.label}>{t('Reference ID (Optional)')}</Text>
                 <Text style={styles.counterText}>{refId.length} / 100</Text>
               </View>
               <TextInput
@@ -435,7 +438,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
                 ]}
                 value={refId}
                 onChangeText={(text) => setRefId(text.substring(0, 100))}
-                placeholder="e.g. EXP-10824982"
+                placeholder={t('e.g. EXP-10824982')}
                 placeholderTextColor="#8B96A5"
                 maxLength={100}
                 autoCapitalize="characters"
@@ -450,7 +453,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
               onPress={handleSubmitPress}
               activeOpacity={0.85}
             >
-              <Text style={styles.submitBtnText}>Submit Entry</Text>
+              <Text style={styles.submitBtnText}>{t('Submit Entry')}</Text>
             </TouchableOpacity>
 
           </View>
@@ -466,31 +469,31 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Confirm Expense Entry</Text>
-            <Text style={styles.modalSubtitle}>Please verify the transaction details below before committing to database.</Text>
+            <Text style={styles.modalTitle}>{t('Confirm Expense Entry')}</Text>
+            <Text style={styles.modalSubtitle}>{t('Please verify the transaction details below before committing to database.')}</Text>
 
             <View style={styles.modalDetails}>
               <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>Expense Type</Text>
-                <Text style={styles.modalValue}>{expenseType}</Text>
+                <Text style={styles.modalLabel}>{t('Expense Type')}</Text>
+                <Text style={styles.modalValue}>{t(expenseType)}</Text>
               </View>
               <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>Expense Subtype</Text>
-                <Text style={styles.modalValue}>{expenseSubtype}</Text>
+                <Text style={styles.modalLabel}>{t('Expense Subtype')}</Text>
+                <Text style={styles.modalValue}>{t(expenseSubtype)}</Text>
               </View>
               <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>Amount</Text>
+                <Text style={styles.modalLabel}>{t('Amount')}</Text>
                 <Text style={[styles.modalAmount, { color: '#EF4444' }]}>₹ {parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
               </View>
               {!!remarks && (
                 <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>Remarks</Text>
+                  <Text style={styles.modalLabel}>{t('Remarks')}</Text>
                   <Text style={styles.modalValue}>{remarks}</Text>
                 </View>
               )}
               {!!refId && (
                 <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>Reference ID</Text>
+                  <Text style={styles.modalLabel}>{t('Reference ID')}</Text>
                   <Text style={styles.modalValue}>{refId}</Text>
                 </View>
               )}
@@ -502,14 +505,14 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
                 onPress={() => setShowConfirmModal(false)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>{t('Cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.confirmBtn, { backgroundColor: '#EF4444' }]} // Crimson for expenses
                 onPress={handleFinalSubmit}
                 activeOpacity={0.8}
               >
-                <Text style={styles.confirmBtnText}>Submit</Text>
+                <Text style={styles.confirmBtnText}>{t('Submit')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -530,6 +533,7 @@ interface CustomDropdownProps {
   setVisible: (visible: boolean) => void;
   error?: string;
   disabled?: boolean;
+  modalTitle: string;
 }
 
 function CustomDropdown({
@@ -542,6 +546,7 @@ function CustomDropdown({
   setVisible,
   error,
   disabled,
+  modalTitle,
 }: CustomDropdownProps) {
   return (
     <View style={styles.dropdownContainer}>
@@ -578,7 +583,7 @@ function CustomDropdown({
         >
           <View style={styles.dropdownModalContent}>
             <View style={styles.dropdownModalHeader}>
-              <Text style={styles.dropdownModalTitle}>Select {label}</Text>
+              <Text style={styles.dropdownModalTitle}>{modalTitle}</Text>
               <TouchableOpacity onPress={() => setVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <MaterialIcons name="close" size={24} color="#173B63" />
               </TouchableOpacity>

@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useLanguage } from '../../src/contexts/LanguageContext';
 
 interface ServicesScreenProps {
   onLogout: () => void;
@@ -19,14 +20,17 @@ interface ServicesScreenProps {
 export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+
+  const { language, setLanguage, t } = useLanguage();
 
   const handleCardPress = (serviceName: string, id: string) => {
     if (id === 'income' || id === 'expense') {
       onNavigateToScreen(id);
     } else {
       Alert.alert(
-        'Service Selected',
-        `You have opened the "${serviceName}" service module.`
+        t('Service Selected'),
+        t('You have opened the service module.', { serviceName })
       );
     }
   };
@@ -34,11 +38,11 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
   const handleLogoutPress = () => {
     setShowMenu(false);
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out from the portal?',
+      t('Sign Out'),
+      t('Are you sure you want to sign out from the portal?'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign Out', style: 'destructive', onPress: onLogout }
+        { text: t('Cancel'), style: 'cancel' },
+        { text: t('Sign Out'), style: 'destructive', onPress: onLogout }
       ]
     );
   };
@@ -51,24 +55,24 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
   const services = [
     {
       id: 'income',
-      title: 'Income Entry',
-      description: 'Record incoming revenue, agricultural yields, and other income sources securely.',
+      title: t('Income Entry'),
+      description: t('Record incoming revenue, agricultural yields, and other income sources securely.'),
       icon: 'account-balance-wallet' as const,
       color: '#10B981', // green
       bgTint: '#E6F8F3',
     },
     {
       id: 'expense',
-      title: 'Expense Entry',
-      description: 'Log administrative expenditures, purchases, and operational costs.',
+      title: t('Expense Entry'),
+      description: t('Log administrative expenditures, purchases, and operational costs.'),
       icon: 'payment' as const,
       color: '#EF4444', // crimson/red
       bgTint: '#FDF2F2',
     },
     {
       id: 'report',
-      title: 'Report',
-      description: 'Generate financial reports, view visual analytics, and export summaries.',
+      title: t('Report'),
+      description: t('Generate financial reports, view visual analytics, and export summaries.'),
       icon: 'assessment' as const,
       color: '#0B5CAD', // royal blue
       bgTint: '#EEF6FC',
@@ -90,18 +94,42 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
                   <Text style={styles.badgeText}>GS</Text>
                 </View>
                 <View style={styles.titleContainer}>
-                  <Text style={styles.headerTitle}>Government Digital Services</Text>
-                  <Text style={styles.headerSubtitle}>Administration Services</Text>
+                  <Text style={styles.headerTitle}>{t('Government Digital Services')}</Text>
+                  <Text style={styles.headerSubtitle}>{t('Administration Services')}</Text>
                 </View>
               </View>
 
-              <TouchableOpacity
-                style={styles.profileAvatarButton}
-                onPress={() => setShowMenu(!showMenu)}
-                activeOpacity={0.7}
-              >
-                <MaterialIcons name="account-circle" size={40} color="#0B5CAD" />
-              </TouchableOpacity>
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  style={styles.languageButton}
+                  onPress={() => {
+                    setShowLanguageMenu(!showLanguageMenu);
+                    setShowMenu(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons
+                    name="language"
+                    size={26}
+                    color="#0B5CAD"
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.profileAvatarButton}
+                  onPress={() => {
+                    setShowMenu(!showMenu);
+                    setShowLanguageMenu(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons
+                    name="account-circle"
+                    size={40}
+                    color="#0B5CAD"
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -114,7 +142,7 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
                   onPress={() => setShowProfile(false)}
                 >
                   <MaterialIcons name="arrow-back" size={24} color="#173B63" />
-                  <Text style={styles.backButtonText}>Back to Services</Text>
+                  <Text style={styles.backButtonText}>{t('Back to Services')}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -123,14 +151,14 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
                   <Text style={styles.profileAvatarLargeText}>TA</Text>
                 </View>
                 <Text style={styles.profileName}>Nimesh Patel</Text>
-                <Text style={styles.profileRole}>Village Officer (Talati)</Text>
+                <Text style={styles.profileRole}>{t('Village Officer (Talati)')}</Text>
 
                 <View style={styles.profileDivider} />
 
                 <View style={styles.detailRow}>
                   <MaterialIcons name="email" size={20} color="#697788" />
                   <View style={styles.detailTextContainer}>
-                    <Text style={styles.detailLabel}>Email Address</Text>
+                    <Text style={styles.detailLabel}>{t('Email Address')}</Text>
                     <Text style={styles.detailValue}>citizen.admin@gov.in</Text>
                   </View>
                 </View>
@@ -138,15 +166,15 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
                 <View style={styles.detailRow}>
                   <MaterialIcons name="business" size={20} color="#697788" />
                   <View style={styles.detailTextContainer}>
-                    <Text style={styles.detailLabel}>Department</Text>
-                    <Text style={styles.detailValue}>Revenue & Land Records</Text>
+                    <Text style={styles.detailLabel}>{t('Department')}</Text>
+                    <Text style={styles.detailValue}>{t('Revenue & Land Records')}</Text>
                   </View>
                 </View>
 
                 <View style={styles.detailRow}>
                   <MaterialIcons name="badge" size={20} color="#697788" />
                   <View style={styles.detailTextContainer}>
-                    <Text style={styles.detailLabel}>Employee ID</Text>
+                    <Text style={styles.detailLabel}>{t('Employee ID')}</Text>
                     <Text style={styles.detailValue}>EMP-2026-8849</Text>
                   </View>
                 </View>
@@ -154,8 +182,8 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
                 <View style={styles.detailRow}>
                   <MaterialIcons name="verified" size={20} color="#10B981" />
                   <View style={styles.detailTextContainer}>
-                    <Text style={styles.detailLabel}>Status</Text>
-                    <Text style={[styles.detailValue, { color: '#10B981', fontWeight: '700' }]}>Active / On Duty</Text>
+                    <Text style={styles.detailLabel}>{t('Status')}</Text>
+                    <Text style={[styles.detailValue, { color: '#10B981', fontWeight: '700' }]}>{t('Active / On Duty')}</Text>
                   </View>
                 </View>
 
@@ -164,7 +192,7 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
                   onPress={() => setShowProfile(false)}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.backToServicesBtnText}>Back to Services</Text>
+                  <Text style={styles.backToServicesBtnText}>{t('Back to Services')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -172,8 +200,8 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
             /* Services Grid View */
             <View>
               {/* Section title */}
-              <Text style={styles.sectionTitle}>Services</Text>
-              <Text style={styles.sectionSubtitle}>Select a service module to perform operations</Text>
+              <Text style={styles.sectionTitle}>{t('Services')}</Text>
+              <Text style={styles.sectionSubtitle}>{t('Select a service module to perform operations')}</Text>
 
               {/* Services Cards List */}
               <View style={styles.cardsContainer}>
@@ -191,7 +219,7 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
                       <Text style={styles.cardTitle}>{service.title}</Text>
                       <Text style={styles.cardDescription}>{service.description}</Text>
                       <View style={styles.cardFooter}>
-                        <Text style={[styles.cardActionText, { color: service.color }]}>Open Service</Text>
+                        <Text style={[styles.cardActionText, { color: service.color }]}>{t('Open Service')}</Text>
                         <MaterialIcons name="chevron-right" size={18} color={service.color} />
                       </View>
                     </View>
@@ -203,10 +231,66 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
 
           {/* Footer branding */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Secure connection encrypted with AES-256</Text>
-            <Text style={styles.craftedText}>Crafted by hands</Text>
+            <Text style={styles.footerText}>{t('Secure connection encrypted with AES-256')}</Text>
+            <Text style={styles.craftedText}>{t('Crafted by hands')}</Text>
           </View>
         </View>
+
+        {showLanguageMenu && (
+          <TouchableOpacity
+            style={styles.languageMenuBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowLanguageMenu(false)}
+          >
+            <View style={styles.languageDropdown}>
+              <Text style={styles.languageMenuTitle}>
+                {t('Language')}
+              </Text>
+
+              <View style={styles.menuDivider} />
+
+              <TouchableOpacity
+                style={styles.languageItem}
+                onPress={() => {
+                  setLanguage('gu');
+                  setShowLanguageMenu(false);
+                }}
+              >
+                <Text style={styles.languageItemText}>
+                  ગુજરાતી
+                </Text>
+
+                {language === 'gu' && (
+                  <MaterialIcons
+                    name="check"
+                    size={20}
+                    color="#0B5CAD"
+                  />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.languageItem}
+                onPress={() => {
+                  setLanguage('en');
+                  setShowLanguageMenu(false);
+                }}
+              >
+                <Text style={styles.languageItemText}>
+                  English
+                </Text>
+
+                {language === 'en' && (
+                  <MaterialIcons
+                    name="check"
+                    size={20}
+                    color="#0B5CAD"
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Profile Menu Popover overlay */}
@@ -219,12 +303,12 @@ export function ServicesScreen({ onLogout, onNavigateToScreen }: ServicesScreenP
           <View style={styles.menuDropdown}>
             <TouchableOpacity style={styles.menuItem} onPress={handleMyProfilePress}>
               <MaterialIcons name="person" size={20} color="#173B63" />
-              <Text style={styles.menuItemText}>My Profile</Text>
+              <Text style={styles.menuItemText}>{t('My Profile')}</Text>
             </TouchableOpacity>
             <View style={styles.menuDivider} />
             <TouchableOpacity style={[styles.menuItem, styles.menuItemLogout]} onPress={handleLogoutPress}>
               <MaterialIcons name="logout" size={20} color="#EF4444" />
-              <Text style={[styles.menuItemText, styles.menuItemTextLogout]}>Logout</Text>
+              <Text style={[styles.menuItemText, styles.menuItemTextLogout]}>{t('Logout')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -256,6 +340,70 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  languageButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#EEF6FC',
+  },
+
+  languageMenuBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 1100,
+  },
+
+  languageDropdown: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 76 : 64,
+    right: 64,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D8E2EC',
+    borderWidth: 1,
+    borderRadius: 8,
+    width: 160,
+    elevation: 8,
+    shadowColor: '#12263F',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    paddingVertical: 4,
+    zIndex: 1101,
+  },
+
+  languageMenuTitle: {
+    fontSize: 13,
+    color: '#697788',
+    fontWeight: '600',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+
+  languageItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+
+  languageItemText: {
+    fontSize: 14,
+    color: '#173B63',
+    fontWeight: '600',
   },
   logoAndTitle: {
     flexDirection: 'row',

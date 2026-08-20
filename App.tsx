@@ -4,6 +4,7 @@ import { LoginScreen } from './src/screens/LoginScreen';
 import { ServicesScreen } from './src/screens/ServicesScreen';
 import { IncomeEntryScreen } from './src/screens/IncomeEntryScreen';
 import { ExpenseEntryScreen } from './src/screens/ExpenseEntryScreen';
+import { LanguageProvider } from './src/contexts/LanguageContext';
 
 type Screen = 'login' | 'services' | 'income' | 'expense';
 
@@ -31,9 +32,9 @@ export default function App() {
   };
 
   return (
-    <>
+    <LanguageProvider>
       <StatusBar style="dark" />
       {renderScreen()}
-    </>
+    </LanguageProvider>
   );
 }
