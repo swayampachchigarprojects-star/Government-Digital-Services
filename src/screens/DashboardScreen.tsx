@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,33 +8,47 @@ import {
   ScrollView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
+import { fetchDashboardSummary, DashboardSummary } from '../services/dashboardService';
 
-interface ServicesScreenProps {
-  onBack: () => void;
+interface DashboardScreenProps {
   onLogout: () => void;
-  onNavigateToScreen: (screen: 'income' | 'expense' | 'report') => void;
+  onNavigateToServices: () => void;
 }
 
-export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: ServicesScreenProps) {
+export function DashboardScreen({ onLogout, onNavigateToServices }: DashboardScreenProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
 
   const { language, setLanguage, t } = useLanguage();
 
-  const handleCardPress = (serviceName: string, id: string) => {
-    if (id === 'income' || id === 'expense' || id === 'report') {
-      onNavigateToScreen(id);
-    } else {
-      Alert.alert(
-        t('Service Selected'),
-        t('You have opened the service module.', { serviceName })
-      );
+  // API States
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setApiError(null);
+      const data = await fetchDashboardSummary();
+      setSummary(data);
+    } catch (error) {
+      console.error('Failed to load dashboard summary:', error);
+      setSummary(null);
+      setApiError(t('Data retrieval is pending backend API availability'));
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
 
   const handleLogoutPress = () => {
     setShowMenu(false);
@@ -53,33 +67,6 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
     setShowProfile(true);
   };
 
-  const services = [
-    {
-      id: 'income',
-      title: t('Income Entry'),
-      description: t('Record incoming revenue, agricultural yields, and other income sources securely.'),
-      icon: 'account-balance-wallet' as const,
-      color: '#10B981', // green
-      bgTint: '#E6F8F3',
-    },
-    {
-      id: 'expense',
-      title: t('Expense Entry'),
-      description: t('Log administrative expenditures, purchases, and operational costs.'),
-      icon: 'payment' as const,
-      color: '#EF4444', // crimson/red
-      bgTint: '#FDF2F2',
-    },
-    {
-      id: 'report',
-      title: t('Report'),
-      description: t('Generate financial reports, view visual analytics, and export summaries.'),
-      icon: 'assessment' as const,
-      color: '#0B5CAD', // royal blue
-      bgTint: '#EEF6FC',
-    },
-  ];
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -91,13 +78,6 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.logoAndTitle}>
-                <TouchableOpacity
-                  style={styles.backButtonHeader}
-                  onPress={onBack}
-                  activeOpacity={0.6}
-                >
-                  <MaterialIcons name="arrow-back" size={24} color="#173B63" />
-                </TouchableOpacity>
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>GS</Text>
                 </View>
@@ -205,35 +185,73 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
               </View>
             </View>
           ) : (
-            /* Services Grid View */
+            /* Dashboard Main Content */
             <View>
-              {/* Section title */}
-              <Text style={styles.sectionTitle}>{t('Services')}</Text>
-              <Text style={styles.sectionSubtitle}>{t('Select a service module to perform operations')}</Text>
+              {/* Section Title */}
+              <Text style={styles.sectionTitle}>{t('Dashboard Overview')}</Text>
+              <Text style={styles.sectionSubtitle}>{t('Real-time updates of village revenue operations')}</Text>
 
-              {/* Services Cards List */}
-              <View style={styles.cardsContainer}>
-                {services.map((service) => (
-                  <TouchableOpacity
-                    key={service.id}
-                    style={styles.card}
-                    onPress={() => handleCardPress(service.title, service.id)}
-                    activeOpacity={0.85}
-                  >
-                    <View style={[styles.iconContainer, { backgroundColor: service.bgTint }]}>
-                      <MaterialIcons name={service.icon} size={30} color={service.color} />
-                    </View>
-                    <View style={styles.cardContent}>
-                      <Text style={styles.cardTitle}>{service.title}</Text>
-                      <Text style={styles.cardDescription}>{service.description}</Text>
-                      <View style={styles.cardFooter}>
-                        <Text style={[styles.cardActionText, { color: service.color }]}>{t('Open Service')}</Text>
-                        <MaterialIcons name="chevron-right" size={18} color={service.color} />
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+              {/* Pending API Warning Banner */}
+              {apiError && (
+                <View style={styles.warningBanner}>
+                  <MaterialIcons name="info-outline" size={20} color="#0B5CAD" />
+                  <Text style={styles.warningBannerText}>{apiError}</Text>
+                </View>
+              )}
+
+              {/* Statistics Cards Row */}
+              <View style={styles.statsRow}>
+                {/* Total Income Card */}
+                <View style={[styles.statsCard, styles.incomeCard]}>
+                  <View style={[styles.statsIconBg, { backgroundColor: '#E6F8F3' }]}>
+                    <MaterialIcons name="trending-up" size={26} color="#10B981" />
+                  </View>
+                  <Text style={styles.statsLabel}>{t('Total Income')}</Text>
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#10B981" style={styles.statsLoader} />
+                  ) : (
+                    <Text style={[styles.statsValue, { color: '#10B981' }]}>
+                      ₹ {summary ? summary.totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Total Expense Card */}
+                <View style={[styles.statsCard, styles.expenseCard]}>
+                  <View style={[styles.statsIconBg, { backgroundColor: '#FDF2F2' }]}>
+                    <MaterialIcons name="trending-down" size={26} color="#EF4444" />
+                  </View>
+                  <Text style={styles.statsLabel}>{t('Total Expense')}</Text>
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#EF4444" style={styles.statsLoader} />
+                  ) : (
+                    <Text style={[styles.statsValue, { color: '#EF4444' }]}>
+                      ₹ {summary ? summary.totalExpense.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}
+                    </Text>
+                  )}
+                </View>
               </View>
+
+              {/* View Services Card (Action Card) */}
+              <TouchableOpacity
+                style={styles.servicesCard}
+                onPress={onNavigateToServices}
+                activeOpacity={0.85}
+              >
+                <View style={[styles.servicesIconBg, { backgroundColor: '#EEF6FC' }]}>
+                  <MaterialIcons name="apps" size={30} color="#0B5CAD" />
+                </View>
+                <View style={styles.servicesContent}>
+                  <Text style={styles.servicesTitle}>{t('Services')}</Text>
+                  <Text style={styles.servicesDescription}>
+                    {t('Select a service module to perform operations')}
+                  </Text>
+                  <View style={styles.servicesFooter}>
+                    <Text style={styles.servicesActionText}>{t('View Services')}</Text>
+                    <MaterialIcons name="chevron-right" size={18} color="#0B5CAD" />
+                  </View>
+                </View>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -251,9 +269,7 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
             onPress={() => setShowLanguageMenu(false)}
           >
             <View style={styles.languageDropdown}>
-              <Text style={styles.languageMenuTitle}>
-                {t('Language')}
-              </Text>
+              <Text style={styles.languageMenuTitle}>{t('Language')}</Text>
 
               <View style={styles.menuDivider} />
 
@@ -264,16 +280,9 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
                   setShowLanguageMenu(false);
                 }}
               >
-                <Text style={styles.languageItemText}>
-                  ગુજરાતી
-                </Text>
-
+                <Text style={styles.languageItemText}>ગુજરાતી</Text>
                 {language === 'gu' && (
-                  <MaterialIcons
-                    name="check"
-                    size={20}
-                    color="#0B5CAD"
-                  />
+                  <MaterialIcons name="check" size={20} color="#0B5CAD" />
                 )}
               </TouchableOpacity>
 
@@ -284,16 +293,9 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
                   setShowLanguageMenu(false);
                 }}
               >
-                <Text style={styles.languageItemText}>
-                  English
-                </Text>
-
+                <Text style={styles.languageItemText}>English</Text>
                 {language === 'en' && (
-                  <MaterialIcons
-                    name="check"
-                    size={20}
-                    color="#0B5CAD"
-                  />
+                  <MaterialIcons name="check" size={20} color="#0B5CAD" />
                 )}
               </TouchableOpacity>
             </View>
@@ -354,7 +356,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-
   languageButton: {
     width: 38,
     height: 38,
@@ -362,65 +363,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#EEF6FC',
-  },
-  backButtonHeader: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#EEF6FC',
-    marginRight: 10,
-  },
-
-  languageMenuBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'transparent',
-    zIndex: 1100,
-  },
-
-  languageDropdown: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 76 : 64,
-    right: 64,
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D8E2EC',
-    borderWidth: 1,
-    borderRadius: 8,
-    width: 160,
-    elevation: 8,
-    shadowColor: '#12263F',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    paddingVertical: 4,
-    zIndex: 1101,
-  },
-
-  languageMenuTitle: {
-    fontSize: 13,
-    color: '#697788',
-    fontWeight: '600',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-
-  languageItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-
-  languageItemText: {
-    fontSize: 14,
-    color: '#173B63',
-    fontWeight: '600',
   },
   logoAndTitle: {
     flexDirection: 'row',
@@ -475,10 +417,73 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 16,
   },
-  cardsContainer: {
-    gap: 16,
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF6FC',
+    borderColor: '#D0E2F5',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    gap: 8,
+    marginBottom: 16,
   },
-  card: {
+  warningBannerText: {
+    color: '#0B5CAD',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 16,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 16,
+  },
+  statsCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D8E2EC',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#12263F',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+  },
+  incomeCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#10B981',
+  },
+  expenseCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#EF4444',
+  },
+  statsIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statsLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#697788',
+    marginBottom: 6,
+  },
+  statsValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  statsLoader: {
+    marginTop: 2,
+  },
+  servicesCard: {
     backgroundColor: '#FFFFFF',
     borderColor: '#D8E2EC',
     borderWidth: 1,
@@ -492,36 +497,38 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
+    marginTop: 8,
   },
-  iconContainer: {
+  servicesIconBg: {
     width: 56,
     height: 56,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cardContent: {
+  servicesContent: {
     flex: 1,
   },
-  cardTitle: {
+  servicesTitle: {
     color: '#173B63',
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,
   },
-  cardDescription: {
+  servicesDescription: {
     color: '#697788',
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 10,
   },
-  cardFooter: {
+  servicesFooter: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  cardActionText: {
+  servicesActionText: {
     fontSize: 13,
     fontWeight: '600',
+    color: '#0B5CAD',
     marginRight: 4,
   },
   footer: {
@@ -650,7 +657,7 @@ const styles = StyleSheet.create({
   },
   menuDropdown: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 76 : 64, // adjusted below header row
+    top: Platform.OS === 'ios' ? 76 : 64,
     right: 20,
     backgroundColor: '#FFFFFF',
     borderColor: '#D8E2EC',
@@ -686,5 +693,50 @@ const styles = StyleSheet.create({
   },
   menuItemTextLogout: {
     color: '#EF4444',
+  },
+  languageMenuBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    zIndex: 1100,
+  },
+  languageDropdown: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 76 : 64,
+    right: 64,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D8E2EC',
+    borderWidth: 1,
+    borderRadius: 8,
+    width: 160,
+    elevation: 8,
+    shadowColor: '#12263F',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    paddingVertical: 4,
+    zIndex: 1101,
+  },
+  languageMenuTitle: {
+    fontSize: 13,
+    color: '#697788',
+    fontWeight: '600',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  languageItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  languageItemText: {
+    fontSize: 14,
+    color: '#173B63',
+    fontWeight: '600',
   },
 });
