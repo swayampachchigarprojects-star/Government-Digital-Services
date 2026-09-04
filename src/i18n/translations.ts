@@ -6,6 +6,7 @@ export const translations = {
     "Crafted by hands": "હાથ દ્વારા બનાવવામાં આવેલ",
     "Cancel": "રદ કરો",
     "Submit": "સબમિટ કરો",
+    "Done": "પૂર્ણ",
     "Back": "પાછા જાઓ",
     "Error": "ભૂલ",
     "Success": "સફળતા",

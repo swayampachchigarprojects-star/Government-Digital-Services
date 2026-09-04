@@ -13,7 +13,7 @@ import {
   Image,
   StatusBar,
 } from 'react-native';
-import { useLanguage } from '../../src/contexts/LanguageContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -112,6 +112,96 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 {t('Sign in to access your services securely.')}
               </Text>
 
+              {/* General Error Banner */}
+              {!!generalError && (
+                <View style={styles.bannerErrorContainer}>
+                  <Text style={styles.bannerErrorText}>{generalError}</Text>
+                </View>
+              )}
+
+              {/* Form */}
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>{t('Email Address')}</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    isEmailFocused && styles.inputFocused,
+                    !!emailError && styles.inputError,
+                  ]}
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (emailError) setEmailError('');
+                    if (generalError) setGeneralError('');
+                  }}
+                  placeholder={t('Enter your email address')}
+                  placeholderTextColor="#8B96A5"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onFocus={() => setIsEmailFocused(true)}
+                  onBlur={() => setIsEmailFocused(false)}
+                />
+                {!!emailError && (
+                  <Text style={styles.fieldErrorText}>{emailError}</Text>
+                )}
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>{t('Password')}</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      styles.passwordInput,
+                      isPasswordFocused && styles.inputFocused,
+                      !!passwordError && styles.inputError,
+                    ]}
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text);
+                      if (passwordError) setPasswordError('');
+                      if (generalError) setGeneralError('');
+                    }}
+                    placeholder={t('Enter your password')}
+                    placeholderTextColor="#8B96A5"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onFocus={() => setIsPasswordFocused(true)}
+                    onBlur={() => setIsPasswordFocused(false)}
+                  />
+                  <TouchableOpacity
+                    style={styles.togglePasswordButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.togglePasswordText}>
+                      {showPassword ? t('Hide') : t('Show')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {!!passwordError && (
+                  <Text style={styles.fieldErrorText}>{passwordError}</Text>
+                )}
+              </View>
+
+              {/* Sign In Button */}
+              <TouchableOpacity
+                style={styles.loginBtn}
+                onPress={handleLogin}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.loginBtnText}>{t('Sign In')}</Text>
+              </TouchableOpacity>
+
+              {/* Divider */}
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>{t('OR')}</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
               {/* Google Sign-In Button */}
               <TouchableOpacity
                 style={styles.googleBtn}
@@ -133,6 +223,9 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   <Text style={styles.footerLink} onPress={handleContactSupport}>
                     {t('Contact Support')}
                   </Text>
+                </Text>
+                <Text style={[styles.footerText, styles.craftedText]}>
+                  {t('Crafted by hands')}
                 </Text>
               </View>
             </View>

@@ -516,9 +516,9 @@ function CustomDatePicker({
   }, [visible, value]);
 
   const monthNames = [
-    t('January'), t('February'), t('March'), t('April'),
-    t('May'), t('June'), t('July'), t('August'),
-    t('September'), t('October'), t('November'), t('December')
+    t('Jan'), t('Feb'), t('Mar'), t('Apr'),
+    t('May'), t('Jun'), t('Jul'), t('Aug'),
+    t('Sep'), t('Oct'), t('Nov'), t('Dec')
   ];
 
   const daysOfWeek = [

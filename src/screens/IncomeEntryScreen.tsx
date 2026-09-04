@@ -37,8 +37,8 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
 
   // Input fields
   const [incomeType, setIncomeType] = useState('');
-  const [incomeSubtype, setIncomeSubtype] = useState('');
-  const [incomeSubtypeCode, setIncomeSubtypeCode] = useState('');
+  const [incomeSubtypeNames, setIncomeSubtypeNames] = useState<string[]>([]);
+  const [incomeSubtypeCodes, setIncomeSubtypeCodes] = useState<string[]>([]);
   const [amount, setAmount] = useState('');
   const [remarks, setRemarks] = useState('');
   const [refId, setRefId] = useState('');
@@ -124,7 +124,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
 
       const payload = {
         transactionType: 'INCOME',
-        transactionHeadCode: incomeSubtypeCode,
+        transactionHeadCode: incomeSubtypeCodes[0] || '',
         date: new Date().toISOString().split('T')[0],
         amount: parseFloat(amount),
         reference: refId,
@@ -179,7 +179,8 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
 
   // Update subtypes when type changes
   useEffect(() => {
-    setIncomeSubtype('');
+    setIncomeSubtypeNames([]);
+    setIncomeSubtypeCodes([]);
     setSubtypeError('');
   }, [incomeType]);
 
@@ -213,7 +214,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setTypeError('');
     }
 
-    if (!incomeSubtype) {
+    if (incomeSubtypeCodes.length === 0) {
       setSubtypeError(t('Income Subtype is required'));
       isValid = false;
     } else {
@@ -250,8 +251,9 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
 
       // Clear form inputs
       setIncomeType('');
-      setIncomeSubtype('');
-      setIncomeSubtypeCode('');
+      setIncomeSubtypeNames([]);
+      setIncomeSubtypeCodes([]);
+      setIncomeSubTypes([]);
       setAmount('');
       setRemarks('');
       setRefId('');
@@ -321,7 +323,8 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
 
                 if (selectedType) {
                   setIncomeType(selectedType.txnName);
-                  setIncomeSubtype('');
+                  setIncomeSubtypeNames([]);
+                  setIncomeSubtypeCodes([]);
                   setIncomeSubTypes([]);
                   setTypeError('');
                   setSubtypeError('');
@@ -340,24 +343,29 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
             {/* Income Subtype Dropdown */}
             <CustomDropdown
               label={t('Income Sub Entry')}
-              value={incomeSubtype ? t(incomeSubtype) : ''}
+              value={incomeSubtypeNames.map((name) => t(name)).join(', ')}
               placeholder={
                 loadingIncomeSubTypes
                   ? t('Loading Income Sub Entries...')
                   : t('Select Income Sub Entry')
               }
-              options={incomeSubTypes.map((item) => t(item.txnName))}
-              onSelect={(val) => {
-                const selectedSubType = incomeSubTypes.find(
-                  (item) => t(item.txnName) === val
-                );
-
-                if (selectedSubType) {
-                  setIncomeSubtype(selectedSubType.txnName);
-                  setIncomeSubtypeCode(selectedSubType.txnCode ?? '');
+              options={incomeSubTypes.map((item) => ({
+                label: t(item.txnName),
+                value: item.txnCode,
+              }))}
+              multiSelect={true}
+              selectedValues={incomeSubtypeCodes}
+              onMultiSelectChange={(newCodes) => {
+                setIncomeSubtypeCodes(newCodes);
+                const newNames = incomeSubTypes
+                  .filter((item) => newCodes.includes(item.txnCode))
+                  .map((item) => item.txnName);
+                setIncomeSubtypeNames(newNames);
+                if (newCodes.length > 0) {
                   setSubtypeError('');
                 }
               }}
+              doneButtonText={t('Done')}
               visible={subtypeDropdownVisible}
               setVisible={setSubtypeDropdownVisible}
               error={subtypeError}
@@ -463,7 +471,9 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
               </View>
               <View style={styles.modalRow}>
                 <Text style={styles.modalLabel}>{t('Income Subtype')}</Text>
-                <Text style={styles.modalValue}>{t(incomeSubtype)}</Text>
+                <Text style={styles.modalValue}>
+                  {incomeSubtypeNames.map((name) => t(name)).join(', ')}
+                </Text>
               </View>
               <View style={styles.modalRow}>
                 <Text style={styles.modalLabel}>{t('Amount')}</Text>
@@ -507,17 +517,26 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
 }
 
 /* Reusable Custom Dropdown Component */
+export interface DropdownOption {
+  label: string;
+  value: string;
+}
+
 interface CustomDropdownProps {
   label: string;
   value: string;
   placeholder: string;
-  options: string[];
-  onSelect: (value: string) => void;
+  options: (string | DropdownOption)[];
+  onSelect?: (value: string) => void;
   visible: boolean;
   setVisible: (visible: boolean) => void;
   error?: string;
   disabled?: boolean;
   modalTitle: string;
+  multiSelect?: boolean;
+  selectedValues?: string[];
+  onMultiSelectChange?: (values: string[]) => void;
+  doneButtonText?: string;
 }
 
 function CustomDropdown({
@@ -531,7 +550,23 @@ function CustomDropdown({
   error,
   disabled,
   modalTitle,
+  multiSelect = false,
+  selectedValues = [],
+  onMultiSelectChange,
+  doneButtonText = 'Done',
 }: CustomDropdownProps) {
+  const normalizedOptions: DropdownOption[] = options.map((option) =>
+    typeof option === 'string' ? { label: option, value: option } : option
+  );
+
+  const handleToggle = (optVal: string) => {
+    const isSelected = selectedValues.includes(optVal);
+    const next = isSelected
+      ? selectedValues.filter((v) => v !== optVal)
+      : [...selectedValues, optVal];
+    onMultiSelectChange?.(next);
+  };
+
   return (
     <View style={styles.dropdownContainer}>
       <Text style={styles.label}>{label}</Text>
@@ -547,10 +582,17 @@ function CustomDropdown({
         }}
         activeOpacity={disabled ? 1 : 0.7}
       >
-        <Text style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]}>
+        <Text
+          style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]}
+          numberOfLines={2}
+        >
           {value || placeholder}
         </Text>
-        <MaterialIcons name="arrow-drop-down" size={24} color={disabled ? "#BAC4D0" : "#697788"} />
+        <MaterialIcons
+          name="arrow-drop-down"
+          size={24}
+          color={disabled ? '#BAC4D0' : '#697788'}
+        />
       </TouchableOpacity>
       {!!error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -565,40 +607,93 @@ function CustomDropdown({
           activeOpacity={1}
           onPress={() => setVisible(false)}
         >
-          <View style={styles.dropdownModalContent}>
+          <View
+            style={styles.dropdownModalContent}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.dropdownModalHeader}>
               <Text style={styles.dropdownModalTitle}>{modalTitle}</Text>
-              <TouchableOpacity onPress={() => setVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity
+                onPress={() => setVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
                 <MaterialIcons name="close" size={24} color="#173B63" />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.dropdownOptionsList} showsVerticalScrollIndicator={false}>
-              {options.map((option) => (
-                <TouchableOpacity
-                  key={option}
-                  style={[
-                    styles.dropdownOption,
-                    value === option && styles.dropdownOptionSelected,
-                  ]}
-                  onPress={() => {
-                    onSelect(option);
-                    setVisible(false);
-                  }}
-                >
-                  <Text
+
+            <ScrollView
+              style={styles.dropdownOptionsList}
+              showsVerticalScrollIndicator={false}
+            >
+              {normalizedOptions.map((option) => {
+                const isSelected = multiSelect
+                  ? selectedValues.includes(option.value)
+                  : value === option.label || value === option.value;
+
+                return (
+                  <TouchableOpacity
+                    key={option.value}
                     style={[
-                      styles.dropdownOptionText,
-                      value === option && styles.dropdownOptionTextSelected,
+                      styles.dropdownOption,
+                      isSelected && styles.dropdownOptionSelected,
                     ]}
+                    onPress={() => {
+                      if (multiSelect) {
+                        handleToggle(option.value);
+                      } else {
+                        onSelect?.(option.value);
+                        setVisible(false);
+                      }
+                    }}
+                    activeOpacity={0.7}
                   >
-                    {option}
-                  </Text>
-                  {value === option && (
-                    <MaterialIcons name="check" size={20} color="#0B5CAD" />
-                  )}
-                </TouchableOpacity>
-              ))}
+                    {multiSelect ? (
+                      <View style={styles.dropdownCheckboxRow}>
+                        <MaterialIcons
+                          name={isSelected ? 'check-box' : 'check-box-outline-blank'}
+                          size={22}
+                          color={isSelected ? '#0B5CAD' : '#8B96A5'}
+                        />
+                        <Text
+                          style={[
+                            styles.dropdownOptionText,
+                            isSelected && styles.dropdownOptionTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
+                    ) : (
+                      <>
+                        <Text
+                          style={[
+                            styles.dropdownOptionText,
+                            isSelected && styles.dropdownOptionTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                        {isSelected && (
+                          <MaterialIcons name="check" size={20} color="#0B5CAD" />
+                        )}
+                      </>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
+
+            {multiSelect && (
+              <View style={styles.dropdownModalFooter}>
+                <TouchableOpacity
+                  style={styles.dropdownDoneBtn}
+                  onPress={() => setVisible(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownDoneBtnText}>{doneButtonText}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -760,7 +855,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   dropdownTrigger: {
-    height: 52,
+    minHeight: 52,
     borderWidth: 1,
     borderColor: '#D8E2EC',
     borderRadius: 8,
@@ -769,6 +864,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   dropdownTriggerActive: {
     borderColor: '#0B5CAD',
@@ -781,8 +877,10 @@ const styles = StyleSheet.create({
     borderColor: '#E4EBF2',
   },
   dropdownValue: {
+    flex: 1,
     fontSize: 14,
     color: '#173B63',
+    marginRight: 8,
   },
   dropdownPlaceholder: {
     color: '#8B96A5',
@@ -832,6 +930,30 @@ const styles = StyleSheet.create({
   },
   dropdownOptionTextSelected: {
     color: '#0B5CAD',
+    fontWeight: '600',
+  },
+  dropdownCheckboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  dropdownModalFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E4EBF2',
+  },
+  dropdownDoneBtn: {
+    backgroundColor: '#0B5CAD',
+    borderRadius: 8,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dropdownDoneBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '600',
   },
   /* Toast styles */

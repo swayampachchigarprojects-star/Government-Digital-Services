@@ -129,12 +129,6 @@ export function ReportScreen({ onBack, onNavigateToScreen }: ReportScreenProps) 
               </TouchableOpacity>
             ))}
           </View>
-
-          {/* Footer branding */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>{t('Secure connection encrypted with AES-256')}</Text>
-            <Text style={styles.craftedText}>{t('Crafted by hands')}</Text>
-          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
