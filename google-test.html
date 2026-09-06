@@ -210,8 +210,8 @@
     }
 
     byId("initializeButton").addEventListener("click", initializeGoogle);
-    byId("signupButton").addEventListener("click", () => authenticateAndStore("/api/v1/auth/signup/google", true));
-    byId("loginButton").addEventListener("click", () => authenticateAndStore("/api/v1/auth/login/google", false));
+    byId("signupButton").addEventListener("click", () => authenticateAndStore("/auth/signup/google", true));
+    byId("loginButton").addEventListener("click", () => authenticateAndStore("/auth/login/google", false));
     byId("apiOperation").addEventListener("change", updateBodyEditor);
     byId("protectedButton").addEventListener("click", callProtectedApi);
     byId("copyJwtButton").addEventListener("click", async () => {
