@@ -1,7 +1,9 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import type { AuthenticatedUser } from './authService';
 
 const TOKEN_KEY = 'gramledger.accessToken';
+const USER_KEY = 'gramledger.user';
 
 export async function getStoredToken(): Promise<string | null> {
   if (Platform.OS === 'web') {
@@ -24,4 +26,33 @@ export async function clearStoredToken(): Promise<void> {
     return;
   }
   await SecureStore.deleteItemAsync(TOKEN_KEY);
+}
+
+export async function getStoredUser(): Promise<AuthenticatedUser | null> {
+  const serialized = Platform.OS === 'web'
+    ? typeof localStorage === 'undefined' ? null : localStorage.getItem(USER_KEY)
+    : await SecureStore.getItemAsync(USER_KEY);
+  if (!serialized) return null;
+  try {
+    return JSON.parse(serialized) as AuthenticatedUser;
+  } catch {
+    return null;
+  }
+}
+
+export async function storeUser(user: AuthenticatedUser): Promise<void> {
+  const serialized = JSON.stringify(user);
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(USER_KEY, serialized);
+    return;
+  }
+  await SecureStore.setItemAsync(USER_KEY, serialized);
+}
+
+export async function clearStoredUser(): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(USER_KEY);
+    return;
+  }
+  await SecureStore.deleteItemAsync(USER_KEY);
 }

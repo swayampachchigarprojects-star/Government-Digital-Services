@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ProfileScreenProps {
   onBack?: () => void;
@@ -19,6 +20,9 @@ interface ProfileScreenProps {
 
 export function ProfileScreen({ onLogout }: ProfileScreenProps) {
   const { language, setLanguage, t } = useLanguage();
+  const { user } = useAuth();
+  const displayValue = (value: string | undefined | null) => value?.trim() || '-';
+  const roleValue = user?.roles?.length ? user.roles.join(', ') : '-';
 
   const handleLogoutPress = () => {
     if (Platform.OS === 'web') {
@@ -66,8 +70,8 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
             <View style={styles.profileAvatarLarge}>
               <Text style={styles.profileAvatarLargeText}>TA</Text>
             </View>
-            <Text style={styles.profileName}>Nimesh Patel</Text>
-            <Text style={styles.profileRole}>{t('Village Officer (Talati)')}</Text>
+            <Text style={styles.profileName}>{displayValue(user?.name)}</Text>
+            <Text style={styles.profileRole}>{roleValue}</Text>
 
             <View style={styles.profileDivider} />
 
@@ -75,33 +79,41 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
               <MaterialIcons name="email" size={20} color="#697788" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>{t('Email Address')}</Text>
-                <Text style={styles.detailValue}>citizen.admin@gov.in</Text>
+                <Text style={styles.detailValue}>{displayValue(user?.email)}</Text>
               </View>
             </View>
 
             <View style={styles.detailRow}>
               <MaterialIcons name="business" size={20} color="#697788" />
               <View style={styles.detailTextContainer}>
-                <Text style={styles.detailLabel}>{t('Department')}</Text>
-                <Text style={styles.detailValue}>{t('Revenue & Land Records')}</Text>
+                <Text style={styles.detailLabel}>{t('Account Name')}</Text>
+                <Text style={styles.detailValue}>{displayValue(user?.accountName)}</Text>
+              </View>
+            </View>
+
+           
+
+            <View style={styles.detailRow}>
+              <MaterialIcons name="location-city" size={20} color="#697788" />
+              <View style={styles.detailTextContainer}>
+                <Text style={styles.detailLabel}>{t('District')}</Text>
+                <Text style={styles.detailValue}>{displayValue(user?.district)}</Text>
               </View>
             </View>
 
             <View style={styles.detailRow}>
-              <MaterialIcons name="badge" size={20} color="#697788" />
+              <MaterialIcons name="map" size={20} color="#697788" />
               <View style={styles.detailTextContainer}>
-                <Text style={styles.detailLabel}>{t('Employee ID')}</Text>
-                <Text style={styles.detailValue}>EMP-2026-8849</Text>
+                <Text style={styles.detailLabel}>{t('Taluka')}</Text>
+                <Text style={styles.detailValue}>{displayValue(user?.taluka)}</Text>
               </View>
             </View>
 
             <View style={styles.detailRow}>
-              <MaterialIcons name="verified" size={20} color="#10B981" />
+              <MaterialIcons name="home" size={20} color="#697788" />
               <View style={styles.detailTextContainer}>
-                <Text style={styles.detailLabel}>{t('Status')}</Text>
-                <Text style={[styles.detailValue, { color: '#10B981', fontWeight: '700' }]}>
-                  {t('Active / On Duty')}
-                </Text>
+                <Text style={styles.detailLabel}>{t('Village')}</Text>
+                <Text style={styles.detailValue}>{displayValue(user?.village)}</Text>
               </View>
             </View>
           </View>
