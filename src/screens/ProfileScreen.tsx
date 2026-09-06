@@ -87,7 +87,7 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
               <MaterialIcons name="business" size={20} color="#697788" />
               <View style={styles.detailTextContainer}>
                 <Text style={styles.detailLabel}>{t('Account Name')}</Text>
-                <Text style={styles.detailValue}>{displayValue(user?.accountName)}</Text>
+                <Text style={styles.detailValue}>{displayValue(user?.accountingEntityName)}</Text>
               </View>
             </View>
 

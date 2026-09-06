@@ -55,7 +55,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
   const [expenseTypeCode, setExpenseTypeCode] = useState('');
   const [expenseSubtypeNames, setExpenseSubtypeNames] = useState<string[]>([]);
   const [expenseSubtypeCodes, setExpenseSubtypeCodes] = useState<string[]>([]);
-  const [amount, setAmount] = useState('');
+  const [subtypeAmounts, setSubtypeAmounts] = useState<Record<string, string>>({});
   const [remarks, setRemarks] = useState('');
   const [refId, setRefId] = useState('');
 
@@ -79,14 +79,14 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
   const [subtypeDropdownVisible, setSubtypeDropdownVisible] = useState(false);
 
   // Focus states
-  const [isAmountFocused, setIsAmountFocused] = useState(false);
+  const [focusedAmountCode, setFocusedAmountCode] = useState<string | null>(null);
   const [isRemarksFocused, setIsRemarksFocused] = useState(false);
   const [isRefIdFocused, setIsRefIdFocused] = useState(false);
 
   // Errors
   const [typeError, setTypeError] = useState('');
   const [subtypeError, setSubtypeError] = useState('');
-  const [amountError, setAmountError] = useState('');
+  const [amountErrors, setAmountErrors] = useState<Record<string, string>>({});
 
   // Modal and Toast States
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -185,7 +185,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
             transactionType: 'EXPENSE',
             transactionHeadCode: code,
             date: new Date().toISOString().split('T')[0],
-            amount: parseFloat(amount),
+            amount: parseFloat(subtypeAmounts[code] || '0'),
             paymentTypeId: paymentTypeId,
           };
           if (refId) item.reference = refId;
@@ -194,16 +194,6 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
         })
       }
 
-
-      // const payload = {
-      //   transactionType: 'EXPENSE',
-      //   transactionHeadCode: expenseSubtypeCodes[0] || '',
-      //   date: new Date().toISOString().split('T')[0],
-      //   amount: parseFloat(amount),
-      //   paymentTypeId: paymentTypeId,
-      //   reference: refId,
-      //   remark: remarks,
-      // };
 
       return apiRequest('/transactions', {
         method: 'POST',
@@ -221,6 +211,8 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
   useEffect(() => {
     setExpenseSubtypeNames([]);
     setExpenseSubtypeCodes([]);
+    setSubtypeAmounts({});
+    setAmountErrors({});
     setSubtypeError('');
   }, [expenseType]);
 
@@ -238,11 +230,17 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
     }, 3000);
   };
 
-  const handleAmountChange = (text: string) => {
+  const handleSubtypeAmountChange = (code: string, text: string) => {
     // Only allow positive numbers with up to 2 decimal points
     if (text === '' || /^\d+\.?\d{0,2}$/.test(text)) {
-      setAmount(text);
-      if (amountError) setAmountError('');
+      setSubtypeAmounts((prev) => ({ ...prev, [code]: text }));
+      if (amountErrors[code]) {
+        setAmountErrors((prev) => {
+          const next = { ...prev };
+          delete next[code];
+          return next;
+        });
+      }
     }
   };
 
@@ -262,16 +260,19 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       setSubtypeError('');
     }
 
-    const amtVal = parseFloat(amount);
-    if (!amount) {
-      setAmountError(t('Amount is required'));
-      isValid = false;
-    } else if (isNaN(amtVal) || amtVal <= 0) {
-      setAmountError(t('Amount must be a positive number greater than 0'));
-      isValid = false;
-    } else {
-      setAmountError('');
+    const nextAmountErrors: Record<string, string> = {};
+    for (const code of expenseSubtypeCodes) {
+      const value = subtypeAmounts[code];
+      const amountValue = parseFloat(value);
+      if (!value || value.trim() === '') {
+        nextAmountErrors[code] = t('Amount is required');
+        isValid = false;
+      } else if (isNaN(amountValue) || amountValue <= 0) {
+        nextAmountErrors[code] = t('Amount must be a positive number greater than 0');
+        isValid = false;
+      }
     }
+    setAmountErrors(nextAmountErrors);
 
     if (!paymentTypeId) {
       setPaymentTypeError(t('Payment Type is required'));
@@ -302,7 +303,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       setExpenseSubtypeNames([]);
       setExpenseSubtypeCodes([]);
       setExpenseSubTypes([]);
-      setAmount('');
+      setSubtypeAmounts({});
       setPaymentTypeId('');
       setRemarks('');
       setRefId('');
@@ -310,7 +311,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       // Clear errors
       setTypeError('');
       setSubtypeError('');
-      setAmountError('');
+      setAmountErrors({});
       setPaymentTypeError('');
 
       // Show success message
@@ -324,6 +325,11 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       );
     }
   };
+
+  const totalAmount = expenseSubtypeCodes.reduce((sum, code) => {
+    const value = parseFloat(subtypeAmounts[code] || '0');
+    return sum + (isNaN(value) ? 0 : value);
+  }, 0);
 
   const selectedPaymentType = paymentTypes.find((pt) => pt.paymentTypeId === paymentTypeId);
 
@@ -417,6 +423,22 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
                 if (newCodes.length > 0) {
                   setSubtypeError('');
                 }
+
+                setSubtypeAmounts((prev) => {
+                  const updated: Record<string, string> = {};
+                  for (const code of newCodes) {
+                    if (prev[code] !== undefined) updated[code] = prev[code];
+                  }
+                  return updated;
+                });
+
+                setAmountErrors((prev) => {
+                  const updated: Record<string, string> = {};
+                  for (const code of newCodes) {
+                    if (prev[code]) updated[code] = prev[code];
+                  }
+                  return updated;
+                });
               }}
               doneButtonText={t('Done')}
               visible={subtypeDropdownVisible}
@@ -425,25 +447,32 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
               modalTitle={t('Select Expense Sub Type Modal Title')}
             />
 
-            {/* Amount Input */}
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>{t('Amount (₹)')}</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  isAmountFocused && styles.inputFocused,
-                  !!amountError && styles.inputError,
-                ]}
-                value={amount}
-                onChangeText={handleAmountChange}
-                placeholder={t('Enter amount (e.g. 1200.00)')}
-                placeholderTextColor="#8B96A5"
-                keyboardType="decimal-pad"
-                onFocus={() => setIsAmountFocused(true)}
-                onBlur={() => setIsAmountFocused(false)}
-              />
-              {!!amountError && <Text style={styles.errorText}>{amountError}</Text>}
-            </View>
+            {/* Dynamic Amount Inputs per selected subtype */}
+            {expenseSubtypeCodes.map((code) => {
+              const subtype = expenseSubTypes.find((item) => item.txnCode === code);
+              const displayName = subtype ? t(subtype.txnName) : code;
+              const isFocused = focusedAmountCode === code;
+              const error = amountErrors[code];
+
+              return (
+                <View key={code} style={styles.formGroup}>
+                  <Text style={styles.label}>{`${t('Amount (₹)')} — ${displayName}`}</Text>
+                  <TextInput
+                    style={[styles.input, isFocused && styles.inputFocused, !!error && styles.inputError]}
+                    value={subtypeAmounts[code] || ''}
+                    onChangeText={(text) => handleSubtypeAmountChange(code, text)}
+                    placeholder={t('Enter amount (e.g. 1200.00)')}
+                    placeholderTextColor="#8B96A5"
+                    keyboardType="decimal-pad"
+                    onFocus={() => setFocusedAmountCode(code)}
+                    onBlur={() => {
+                      if (focusedAmountCode === code) setFocusedAmountCode(null);
+                    }}
+                  />
+                  {!!error && <Text style={styles.errorText}>{error}</Text>}
+                </View>
+              );
+            })}
 
             {/* Payment Type Dropdown */}
             <CustomDropdown
@@ -558,7 +587,18 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
               </View>
               <View style={styles.modalRow}>
                 <Text style={styles.modalLabel}>{t('Amount')}</Text>
-                <Text style={[styles.modalAmount, { color: '#EF4444' }]}>₹ {parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                <View>
+                  {expenseSubtypeCodes.map((code) => {
+                    const subtype = expenseSubTypes.find((item) => item.txnCode === code);
+                    const value = parseFloat(subtypeAmounts[code] || '0') || 0;
+                    return (
+                      <Text key={code} style={[styles.modalValue, { color: '#EF4444' }]}>
+                        {`${subtype ? t(subtype.txnName) : code}: ₹ ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      </Text>
+                    );
+                  })}
+                  <Text style={[styles.modalAmount, { color: '#EF4444' }]}>₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                </View>
               </View>
               <View style={styles.modalRow}>
                 <Text style={styles.modalLabel}>{t('Payment Type')}</Text>
