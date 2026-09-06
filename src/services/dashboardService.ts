@@ -3,25 +3,8 @@ export interface DashboardSummary {
   totalExpense: number;
 }
 
-const BASE_URL = 'http://192.168.0.248:8080/api/v1';
+import { apiRequest } from './apiClient';
 
 export async function fetchDashboardSummary(): Promise<DashboardSummary> {
-  const url = `${BASE_URL}/dashboard/summary`;
-  
-  console.log('Fetching dashboard summary from API:', url);
-  
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data;
+  return apiRequest<DashboardSummary>('/dashboard/summary');
 }

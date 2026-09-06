@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
@@ -8,11 +9,35 @@ import { ExpenseEntryScreen } from './src/screens/ExpenseEntryScreen';
 import { ReportScreen } from './src/screens/ReportScreen';
 import { TransactionsReportScreen } from './src/screens/TransactionsReportScreen';
 import { LanguageProvider } from './src/contexts/LanguageContext';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 
 type Screen = 'login' | 'dashboard' | 'services' | 'income' | 'expense' | 'report' | 'transactions-report';
 
 export default function App() {
+  return (
+    <LanguageProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </LanguageProvider>
+  );
+}
+
+function AppContent() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
+  const { isAuthenticated, isHydrating, logout } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated && currentScreen !== 'login') setCurrentScreen('login');
+  }, [currentScreen, isAuthenticated]);
+
+  if (isHydrating) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#0B5CAD" />
+      </View>
+    );
+  }
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -21,7 +46,7 @@ export default function App() {
       case 'dashboard':
         return (
           <DashboardScreen
-            onLogout={() => setCurrentScreen('login')}
+            onLogout={() => { void logout(); setCurrentScreen('login'); }}
             onNavigateToServices={() => setCurrentScreen('services')}
           />
         );
@@ -29,7 +54,7 @@ export default function App() {
         return (
           <ServicesScreen
             onBack={() => setCurrentScreen('dashboard')}
-            onLogout={() => setCurrentScreen('login')}
+            onLogout={() => { void logout(); setCurrentScreen('login'); }}
             onNavigateToScreen={(screen) => setCurrentScreen(screen)}
           />
         );
@@ -51,10 +76,5 @@ export default function App() {
     }
   };
 
-  return (
-    <LanguageProvider>
-      <StatusBar style="dark" />
-      {renderScreen()}
-    </LanguageProvider>
-  );
+  return <><StatusBar style="dark" />{renderScreen()}</>;
 }

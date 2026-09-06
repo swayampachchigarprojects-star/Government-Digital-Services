@@ -15,26 +15,9 @@ export interface TransactionFilters {
   toDate: string; // YYYY-MM-DD
 }
 
-const BASE_URL = 'http://192.168.0.248:8080/api/v1';
+import { apiRequest } from './apiClient';
 
 export async function fetchTransactions(filters: TransactionFilters): Promise<Transaction[]> {
   const { entryType, fromDate, toDate } = filters;
-  const url = `${BASE_URL}/transactions?transactionType=${encodeURIComponent(entryType)}&startDate=${encodeURIComponent(fromDate)}&endDate=${encodeURIComponent(toDate)}`;
-  
-  console.log('Fetching transactions from API:', url);
-  
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data;
+  return apiRequest<Transaction[]>(`/transactions?transactionType=${encodeURIComponent(entryType)}&startDate=${encodeURIComponent(fromDate)}&endDate=${encodeURIComponent(toDate)}`);
 }

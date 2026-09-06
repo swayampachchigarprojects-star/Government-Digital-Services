@@ -47,7 +47,7 @@ export function DashboardScreen({ onLogout, onNavigateToServices }: DashboardScr
   };
 
   useEffect(() => {
-    loadDashboardData();
+    //loadDashboardData();
   }, []);
 
   const handleLogoutPress = () => {

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
+import { apiRequest } from '../services/apiClient';
 
 interface ExpenseEntryScreenProps {
   onBack: () => void;
@@ -75,17 +76,9 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
     try {
       setLoadingExpenseTypes(true);
 
-      const response = await fetch(
-        'http://192.168.0.248:8080/api/v1/transaction-heads?transactionType=EXPENSE&level=1'
+      const data = await apiRequest<TransactionHead[]>(
+        '/transaction-heads?transactionType=EXPENSE&level=1'
       );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`);
-      }
-
-      const data: TransactionHead[] = await response.json();
-
-      console.log('Expense Type API Response:', data);
 
       setExpenseTypes(data);
     } catch (error) {
@@ -107,17 +100,9 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
     try {
       setLoadingExpenseSubTypes(true);
 
-      const response = await fetch(
-        `http://192.168.0.248:8080/api/v1/transaction-heads?transactionType=EXPENSE&precedingHeadCode=${encodeURIComponent(precedingHeadCode)}&level=2`
+      const data = await apiRequest<TransactionHead[]>(
+        `/transaction-heads?transactionType=EXPENSE&precedingHeadCode=${encodeURIComponent(precedingHeadCode)}&level=2`
       );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`);
-      }
-
-      const data: TransactionHead[] = await response.json();
-
-      console.log('Expense Sub Type API Response:', data);
 
       setExpenseSubTypes(data);
     } catch (error) {
@@ -148,29 +133,10 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
         remark: remarks,
       };
 
-      console.log('Submitting Expense Entry:', payload);
-
-      const response = await fetch(
-        'http://192.168.0.248:8080/api/v1/transactions',
-        {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      console.log('Expense Entry Submit Response:', data);
-
-      return data;
+      return apiRequest('/transactions', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
     } catch (error) {
       console.error('Failed to submit Expense Entry:', error);
       throw error;

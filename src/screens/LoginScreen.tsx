@@ -12,8 +12,13 @@ import {
   Alert,
   Image,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useLanguage } from '../../src/contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
+import { ApiError } from '../services/apiClient';
+import { authService } from '../services/authService';
+import { useGoogleAuth } from '../services/googleAuth';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -21,6 +26,8 @@ interface LoginScreenProps {
 
 export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const { t } = useLanguage();
+  const { setSession } = useAuth();
+  const googleAuth = useGoogleAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,6 +38,8 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
+  const [accountingEntityId, setAccountingEntityId] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const validateForm = () => {
     let isValid = true;
@@ -85,8 +94,40 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     onLoginSuccess();
   };
 
-  const handleGoogleLogin = () => {
-    onLoginSuccess();
+  const handleGoogleAuth = async (signup: boolean) => {
+    if (isAuthenticating) return;
+    if (signup && !accountingEntityId.trim()) {
+      Alert.alert(t('Validation Error'), t('Accounting entity ID is required'));
+      return;
+    }
+    setIsAuthenticating(true);
+    try {
+      const googleResult = await googleAuth.signIn();
+      if (googleResult.type === 'cancelled') {
+        Alert.alert(t('Sign In'), t('Google sign-in was cancelled.'));
+        return;
+      }
+      if (googleResult.type !== 'success') {
+        Alert.alert(t('Sign In'), t(googleResult.message));
+        return;
+      }
+      const token = signup
+        ? await authService.signupWithGoogle(googleResult.idToken, accountingEntityId.trim())
+        : await authService.loginWithGoogle(googleResult.idToken);
+      await setSession(token);
+      onLoginSuccess();
+    } catch (error) {
+      const message = error instanceof ApiError && error.status === 403
+        ? t('Your account is not registered. Please contact your administrator.')
+        : error instanceof ApiError && error.status === 0
+          ? t('Unable to connect to the server. Please try again.')
+          : error instanceof Error && error.message === 'The authentication response was invalid.'
+            ? t('Unable to sign in with Google. Please try again.')
+            : t('Unable to sign in with Google. Please try again.');
+      Alert.alert(t('Sign In'), message);
+    } finally {
+      setIsAuthenticating(false);
+    }
   };
 
   const handleContactSupport = () => {
@@ -114,8 +155,9 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
 
               {/* Google Sign-In Button */}
               <TouchableOpacity
-                style={styles.googleBtn}
-                onPress={handleGoogleLogin}
+                style={[styles.googleBtn, isAuthenticating && styles.disabledButton]}
+                onPress={() => { void handleGoogleAuth(false); }}
+                disabled={isAuthenticating}
                 activeOpacity={0.8}
               >
                 <Image
@@ -123,8 +165,30 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   style={styles.googleIcon}
                   resizeMode="contain"
                 />
-                <Text style={styles.googleBtnText}>{t('Continue with Google')}</Text>
+                {isAuthenticating ? <ActivityIndicator color="#0B5CAD" /> : <Text style={styles.googleBtnText}>{t('Continue with Google')}</Text>}
               </TouchableOpacity>
+
+              <View style={styles.signupSection}>
+                <Text style={styles.signupTitle}>{t('New user? Sign up with Google')}</Text>
+                <TextInput
+                  style={styles.input}
+                  value={accountingEntityId}
+                  onChangeText={setAccountingEntityId}
+                  placeholder={t('Accounting entity ID')}
+                  placeholderTextColor="#9AA5B1"
+                  autoCapitalize="none"
+                  accessibilityLabel={t('Accounting entity ID')}
+                  editable={!isAuthenticating}
+                />
+                <TouchableOpacity
+                  style={[styles.signupBtn, isAuthenticating && styles.disabledButton]}
+                  onPress={() => { void handleGoogleAuth(true); }}
+                  disabled={isAuthenticating}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.signupBtnText}>{t('Sign up with Google')}</Text>
+                </TouchableOpacity>
+              </View>
 
               {/* Footer Links */}
               <View style={styles.footerContainer}>
@@ -342,6 +406,31 @@ const styles = StyleSheet.create({
   },
   googleBtnText: {
     color: '#354052',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  signupSection: {
+    marginTop: 24,
+    gap: 12,
+  },
+  signupTitle: {
+    color: '#354052',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  signupBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#E8F1FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  signupBtnText: {
+    color: '#0B5CAD',
     fontSize: 15,
     fontWeight: '600',
   },
