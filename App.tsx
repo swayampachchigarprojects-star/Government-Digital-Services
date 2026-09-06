@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
@@ -11,9 +11,38 @@ import { TransactionsReportScreen } from './src/screens/TransactionsReportScreen
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { BottomNavigationBar, Screen } from './src/components/BottomNavigationBar';
 import { LanguageProvider } from './src/contexts/LanguageContext';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 
 export default function App() {
+  return (
+    <LanguageProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </LanguageProvider>
+  );
+}
+
+function AppContent() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
+  const { isAuthenticated, isHydrating, logout } = useAuth();
+
+  useEffect(() => {
+    if (isHydrating) return;
+    if (!isAuthenticated && currentScreen !== 'login') {
+      setCurrentScreen('login');
+    } else if (isAuthenticated && currentScreen === 'login') {
+      setCurrentScreen('dashboard');
+    }
+  }, [currentScreen, isAuthenticated, isHydrating]);
+
+  if (isHydrating) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#0B5CAD" />
+      </View>
+    );
+  }
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -22,7 +51,7 @@ export default function App() {
       case 'dashboard':
         return (
           <DashboardScreen
-            onLogout={() => setCurrentScreen('login')}
+            onLogout={() => { void logout(); setCurrentScreen('login'); }}
             onNavigateToServices={() => setCurrentScreen('services')}
             onNavigateToProfile={() => setCurrentScreen('profile')}
           />
@@ -31,7 +60,7 @@ export default function App() {
         return (
           <ServicesScreen
             onBack={() => setCurrentScreen('dashboard')}
-            onLogout={() => setCurrentScreen('login')}
+            onLogout={() => { void logout(); setCurrentScreen('login'); }}
             onNavigateToScreen={(screen) => setCurrentScreen(screen)}
           />
         );
@@ -52,7 +81,7 @@ export default function App() {
         return (
           <ProfileScreen
             onBack={() => setCurrentScreen('dashboard')}
-            onLogout={() => setCurrentScreen('login')}
+            onLogout={() => { void logout(); setCurrentScreen('login'); }}
           />
         );
       default:
@@ -61,7 +90,7 @@ export default function App() {
   };
 
   return (
-    <LanguageProvider>
+    <>
       <StatusBar style="dark" />
       <View style={styles.appRoot}>
         <View style={styles.screenWrapper}>
@@ -76,7 +105,7 @@ export default function App() {
           />
         )}
       </View>
-    </LanguageProvider>
+    </>
   );
 }
 

@@ -1,3 +1,5 @@
+import { apiRequest } from './apiClient';
+
 export interface BalanceItem {
   balType: string;
   balValue: number | string;
@@ -73,23 +75,5 @@ export async function fetchBalances(entityId: string = DEFAULT_ENTITY_ID): Promi
 }
 
 export async function fetchDashboardSummary(): Promise<DashboardSummary> {
-  const cleanBaseUrl = BASE_URL.replace(/\/+$/, '');
-  const url = `${cleanBaseUrl}/dashboard/summary`;
-  
-  console.log('Fetching dashboard summary from API:', url);
-  
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data;
+  return apiRequest<DashboardSummary>('/dashboard/summary');
 }

@@ -150,7 +150,7 @@ export function DashboardScreen({
   };
 
   useEffect(() => {
-    loadDashboardData();
+    //loadDashboardData();
   }, []);
 
   const handleLogoutPress = () => {
