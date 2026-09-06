@@ -98,7 +98,7 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
           </View>
 
           {/* Preferences Card */}
-          <View style={styles.settingsCard}>
+          {/* <View style={styles.settingsCard}>
             <Text style={styles.cardHeaderTitle}>{t('Language')}</Text>
 
             <View style={styles.languageToggleRow}>
@@ -144,7 +144,7 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
+          </View> */}
 
           {/* Sign Out Button */}
           <TouchableOpacity

@@ -38,9 +38,9 @@ export const translations = {
     // ServicesScreen
     "Services": "સેવાઓ",
     "Select a service module to perform operations": "કામગીરી કરવા માટે સેવા મોડ્યુલ પસંદ કરો",
-    "Income Entry": "આવક નોંધણી",
+    "Income": "આવક",
     "Record incoming revenue, agricultural yields, and other income sources securely.": "આવક મહેસૂલ, કૃષિ ઉપજ અને અન્ય આવકના સ્ત્રોતો સુરક્ષિત રીતે રેકોર્ડ કરો.",
-    "Expense Entry": "ખર્ચ નોંધણી",
+    "Expense": "ખર્ચ",
     "Log administrative expenditures, purchases, and operational costs.": "વહીવટી ખર્ચ, ખરીદી અને ઓપરેશનલ ખર્ચ લોગ કરો.",
     "Report": "અહેવાલ",
     "Generate financial reports, view visual analytics, and export summaries.": "નાણાકીય અહેવાલો બનાવો, વિઝ્યુઅલ એનાલિટિક્સ જુઓ અને સારાંશ નિકાસ કરો.",

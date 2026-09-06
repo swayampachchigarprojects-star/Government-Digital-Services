@@ -56,16 +56,16 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
   const services = [
     {
       id: 'income',
-      title: t('Income Entry'),
-      description: t('Record incoming revenue, agricultural yields, and other income sources securely.'),
+      title: t('Income'),
+      // description: t('Record incoming revenue, agricultural yields, and other income sources securely.'),
       icon: 'account-balance-wallet' as const,
       color: '#10B981', // green
       bgTint: '#E6F8F3',
     },
     {
       id: 'expense',
-      title: t('Expense Entry'),
-      description: t('Log administrative expenditures, purchases, and operational costs.'),
+      title: t('Expense'),
+      // description: t('Log administrative expenditures, purchases, and operational costs.'),
       icon: 'payment' as const,
       color: '#EF4444', // crimson/red
       bgTint: '#FDF2F2',
@@ -185,15 +185,13 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
                     activeOpacity={0.85}
                   >
                     <View style={[styles.iconContainer, { backgroundColor: service.bgTint }]}>
-                      <MaterialIcons name={service.icon} size={30} color={service.color} />
+                      <MaterialIcons name={service.icon} size={26} color={service.color} />
                     </View>
                     <View style={styles.cardContent}>
                       <Text style={styles.cardTitle}>{service.title}</Text>
-                      <Text style={styles.cardDescription}>{service.description}</Text>
-                      <View style={styles.cardFooter}>
-                        <Text style={[styles.cardActionText, { color: service.color }]}>{t('Open Service')}</Text>
-                        <MaterialIcons name="chevron-right" size={18} color={service.color} />
-                      </View>
+                    </View>
+                    <View style={styles.chevronContainer}>
+                      <MaterialIcons name="chevron-right" size={24} color={service.color} />
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -434,38 +432,43 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cardsContainer: {
-    gap: 16,
+    gap: 14,
   },
   card: {
     backgroundColor: '#FFFFFF',
     borderColor: '#D8E2EC',
     borderWidth: 1,
     borderRadius: 12,
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 14,
-    elevation: 3,
+    elevation: 2,
     shadowColor: '#12263F',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
   iconContainer: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   cardContent: {
     flex: 1,
+    justifyContent: 'center',
   },
   cardTitle: {
     color: '#173B63',
     fontSize: 16,
     fontWeight: '700',
-    marginBottom: 4,
+  },
+  chevronContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cardDescription: {
     color: '#697788',
