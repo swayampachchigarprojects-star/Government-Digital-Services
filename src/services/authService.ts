@@ -36,4 +36,10 @@ export const authService = {
   signupWithGoogle(idToken: string, accountingEntityId: string): Promise<string> {
     return exchange('/auth/signup/google', { idToken, accountingEntityId });
   },
+  async logout(): Promise<void> {
+    await apiRequest('/auth/logout', {
+      method: 'POST',
+      authenticated: true,
+    });
+  },
 };

@@ -21,7 +21,7 @@ interface DashboardScreenProps {
 }
 
 interface CardTheme {
-  // borderColor: string;
+  //borderColor: string;
   iconBg: string;
   iconColor: string;
   icon: keyof typeof MaterialIcons.glyphMap;
@@ -30,42 +30,42 @@ interface CardTheme {
 
 const CARD_THEMES: CardTheme[] = [
   {
-    // borderColor: '#10B981', // Emerald
+    //borderColor: '#10B981', // Emerald
     iconBg: '#E6F8F3',
     iconColor: '#10B981',
     icon: 'account-balance-wallet',
     valueColor: '#0E835C',
   },
   {
-    // borderColor: '#0B5CAD', // Government Blue
+    //borderColor: '#0B5CAD', // Government Blue
     iconBg: '#EEF6FC',
     iconColor: '#0B5CAD',
     icon: 'account-balance',
     valueColor: '#0B5CAD',
   },
   {
-    // borderColor: '#F59E0B', // Amber
+    //borderColor: '#F59E0B', // Amber
     iconBg: '#FEF3C7',
     iconColor: '#D97706',
     icon: 'savings',
     valueColor: '#B45309',
   },
   {
-    // borderColor: '#8B5CF6', // Violet
+    borderColor: '#8B5CF6', // Violet
     iconBg: '#F3E8FF',
     iconColor: '#7C3AED',
     icon: 'payments',
     valueColor: '#6D28D9',
   },
   {
-    // borderColor: '#06B6D4', // Teal / Cyan
+    //borderColor: '#06B6D4', // Teal / Cyan
     iconBg: '#ECFEFF',
     iconColor: '#0891B2',
     icon: 'monetization-on',
     valueColor: '#0E7490',
   },
   {
-    // borderColor: '#EF4444', // Crimson / Red
+    //borderColor: '#EF4444', // Crimson / Red
     iconBg: '#FDF2F2',
     iconColor: '#EF4444',
     icon: 'receipt-long',
