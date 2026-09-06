@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { configureApiClient } from '../services/apiClient';
-import { authService } from '../services/authService';
-import { clearStoredToken, getStoredToken, storeToken } from '../services/tokenStorage';
+import { authService, AuthenticatedUser, AuthenticationResponse } from '../services/authService';
+import { clearStoredToken, clearStoredUser, getStoredToken, getStoredUser, storeToken, storeUser } from '../services/tokenStorage';
 
 interface AuthContextValue {
   token: string | null;
+  user: AuthenticatedUser | null;
   isAuthenticated: boolean;
   isHydrating: boolean;
-  setSession: (token: string) => Promise<void>;
+  setSession: (session: AuthenticationResponse) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const tokenRef = useRef<string | null>(null);
   const logoutInFlightRef = useRef<Promise<void> | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
@@ -22,7 +24,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearLocalSession = async () => {
     tokenRef.current = null;
     setToken(null);
-    await clearStoredToken();
+    setUser(null);
+    await Promise.all([clearStoredToken(), clearStoredUser()]);
   };
 
   const logout = async () => {
@@ -55,10 +58,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    void getStoredToken().then((storedToken) => {
+    void getStoredToken().then(async (storedToken) => {
       if (mounted) {
+        const storedUser = await getStoredUser();
         tokenRef.current = storedToken;
         setToken(storedToken);
+        setUser(storedUser);
         setIsHydrating(false);
       }
     }).catch(() => {
@@ -69,15 +74,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<AuthContextValue>(() => ({
     token,
+    user,
     isAuthenticated: Boolean(token),
     isHydrating,
-    setSession: async (nextToken: string) => {
-      await storeToken(nextToken);
-      tokenRef.current = nextToken;
-      setToken(nextToken);
+    setSession: async (session: AuthenticationResponse) => {
+      const { accessToken, tokenType: _tokenType, expiresInSeconds: _expiresInSeconds, ...profile } = session;
+      await Promise.all([storeToken(accessToken), storeUser(profile)]);
+      tokenRef.current = session.accessToken;
+      setToken(session.accessToken);
+      setUser(profile);
     },
     logout,
-  }), [isHydrating, token]);
+  }), [isHydrating, token, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -47,11 +47,11 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         Alert.alert(t('Sign In'), t(googleResult.message));
         return;
       }
-      const token = await authService.signupWithGoogle(
+      const session = await authService.signupWithGoogle(
         googleResult.idToken,
         accountingEntityId.trim(),
       );
-      await setSession(token);
+      await setSession(session);
       onLoginSuccess();
     } catch (error) {
       const message = error instanceof ApiError && error.status === 403
