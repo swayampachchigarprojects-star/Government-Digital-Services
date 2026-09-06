@@ -21,7 +21,7 @@ interface DashboardScreenProps {
 }
 
 interface CardTheme {
-  borderColor: string;
+  // borderColor: string;
   iconBg: string;
   iconColor: string;
   icon: keyof typeof MaterialIcons.glyphMap;
@@ -30,42 +30,42 @@ interface CardTheme {
 
 const CARD_THEMES: CardTheme[] = [
   {
-    borderColor: '#10B981', // Emerald
+    // borderColor: '#10B981', // Emerald
     iconBg: '#E6F8F3',
     iconColor: '#10B981',
     icon: 'account-balance-wallet',
     valueColor: '#0E835C',
   },
   {
-    borderColor: '#0B5CAD', // Government Blue
+    // borderColor: '#0B5CAD', // Government Blue
     iconBg: '#EEF6FC',
     iconColor: '#0B5CAD',
     icon: 'account-balance',
     valueColor: '#0B5CAD',
   },
   {
-    borderColor: '#F59E0B', // Amber
+    // borderColor: '#F59E0B', // Amber
     iconBg: '#FEF3C7',
     iconColor: '#D97706',
     icon: 'savings',
     valueColor: '#B45309',
   },
   {
-    borderColor: '#8B5CF6', // Violet
+    // borderColor: '#8B5CF6', // Violet
     iconBg: '#F3E8FF',
     iconColor: '#7C3AED',
     icon: 'payments',
     valueColor: '#6D28D9',
   },
   {
-    borderColor: '#06B6D4', // Teal / Cyan
+    // borderColor: '#06B6D4', // Teal / Cyan
     iconBg: '#ECFEFF',
     iconColor: '#0891B2',
     icon: 'monetization-on',
     valueColor: '#0E7490',
   },
   {
-    borderColor: '#EF4444', // Crimson / Red
+    // borderColor: '#EF4444', // Crimson / Red
     iconBg: '#FDF2F2',
     iconColor: '#EF4444',
     icon: 'receipt-long',
@@ -105,14 +105,6 @@ function formatBalanceValue(val: number | string | undefined | null): string {
   }
   return String(val);
 }
-
-const chunkBalances = (items: BalanceItem[]): BalanceItem[][] => {
-  const rows: BalanceItem[][] = [];
-  for (let i = 0; i < items.length; i += 2) {
-    rows.push(items.slice(i, i + 2));
-  }
-  return rows;
-};
 
 export function DashboardScreen({
   onLogout,
@@ -315,21 +307,19 @@ export function DashboardScreen({
               {/* Dynamic Balance Cards / Loading / Empty States */}
               {loading ? (
                 /* Loading Skeletons */
-                <View style={styles.balancesRow}>
-                  <View style={[styles.balanceCard, styles.loadingCard]}>
-                    <View style={[styles.balanceIconBg, { backgroundColor: '#F0F4F8' }]}>
-                      <ActivityIndicator size="small" color="#0B5CAD" />
+                <View style={styles.balancesList}>
+                  {[1, 2, 3].map((key) => (
+                    <View key={`loading-${key}`} style={[styles.balanceCard, styles.loadingCard]}>
+                      <View style={[styles.balanceIconBg, { backgroundColor: '#F0F4F8' }]}>
+                        {key === 1 ? <ActivityIndicator size="small" color="#0B5CAD" /> : null}
+                      </View>
+                      <View style={styles.balanceInfo}>
+                        <View style={styles.loadingHeadingPlaceholder} />
+                        <View style={styles.loadingSubheadingPlaceholder} />
+                      </View>
+                      <View style={styles.loadingValuePlaceholder} />
                     </View>
-                    <View style={styles.loadingHeadingPlaceholder} />
-                    <View style={styles.loadingValuePlaceholder} />
-                  </View>
-                  <View style={[styles.balanceCard, styles.loadingCard]}>
-                    <View style={[styles.balanceIconBg, { backgroundColor: '#F0F4F8' }]}>
-                      <ActivityIndicator size="small" color="#0B5CAD" />
-                    </View>
-                    <View style={styles.loadingHeadingPlaceholder} />
-                    <View style={styles.loadingValuePlaceholder} />
-                  </View>
+                  ))}
                 </View>
               ) : balances.length === 0 ? (
                 /* Empty State */
@@ -353,72 +343,60 @@ export function DashboardScreen({
                   </TouchableOpacity>
                 </View>
               ) : (
-                /* Dynamic Balance Cards Grid */
-                <View style={styles.balancesGrid}>
-                  {chunkBalances(balances).map((row, rowIndex) => (
-                    <View key={`balance-row-${rowIndex}`} style={styles.balancesRow}>
-                      {row.map((item, colIndex) => {
-                        const itemIndex = rowIndex * 2 + colIndex;
-                        const theme = getCardTheme(itemIndex, item.balType);
-                        return (
-                          <View
-                            key={`balance-card-${rowIndex}-${colIndex}`}
-                            style={[
-                              styles.balanceCard,
-                              { borderLeftColor: theme.borderColor },
-                            ]}
-                          >
-                            {/* Card Top: Sleek Icon Badge */}
-                            <View style={styles.balanceCardTop}>
-                              <View
-                                style={[
-                                  styles.balanceIconBg,
-                                  { backgroundColor: theme.iconBg },
-                                ]}
-                              >
-                                <MaterialIcons
-                                  name={theme.icon}
-                                  size={22}
-                                  color={theme.iconColor}
-                                />
-                              </View>
-                            </View>
-
-                            {/* Card Middle: balType Heading */}
-                            <View style={styles.balanceCardMiddle}>
-                              <Text
-                                style={styles.balanceHeading}
-                                numberOfLines={3}
-                                ellipsizeMode="tail"
-                              >
-                                {t(item.balType)}
-                              </Text>
-                            </View>
-
-                            {/* Card Bottom: balValue */}
-                            <View style={styles.balanceCardBottom}>
-                              <Text
-                                style={[styles.balanceValue, { color: theme.valueColor }]}
-                                numberOfLines={1}
-                                adjustsFontSizeToFit
-                                minimumFontScale={0.8}
-                              >
-                                ₹ {formatBalanceValue(item.balValue)}
-                              </Text>
-                            </View>
-                          </View>
-                        );
-                      })}
-
-                      {/* Transparent placeholder to align odd item in the last row */}
-                      {row.length === 1 && (
+                /* Dynamic Balance Cards List (WhatsApp chat-list style) */
+                <View style={styles.balancesList}>
+                  {balances.map((item, index) => {
+                    const theme = getCardTheme(index, item.balType);
+                    return (
+                      <View
+                        key={`balance-card-${index}`}
+                        style={[
+                          styles.balanceCard,
+                          { borderLeftColor: theme.borderColor },
+                        ]}
+                      >
+                        {/* Left: Avatar Icon */}
                         <View
-                          style={[styles.balanceCard, styles.balanceCardPlaceholder]}
-                          pointerEvents="none"
-                        />
-                      )}
-                    </View>
-                  ))}
+                          style={[
+                            styles.balanceIconBg,
+                            { backgroundColor: theme.iconBg },
+                          ]}
+                        >
+                          <MaterialIcons
+                            name={theme.icon}
+                            size={22}
+                            color={theme.iconColor}
+                          />
+                        </View>
+
+                        {/* Middle: Title & Subtitle */}
+                        <View style={styles.balanceInfo}>
+                          <Text
+                            style={styles.balanceHeading}
+                            numberOfLines={2}
+                            ellipsizeMode="tail"
+                          >
+                            {t(item.balType)}
+                          </Text>
+                          <Text style={styles.balanceSubtitle}>
+                            {t('Balance')}
+                          </Text>
+                        </View>
+
+                        {/* Right: Balance Value */}
+                        <View style={styles.balanceValueContainer}>
+                          <Text
+                            style={[styles.balanceValue, { color: theme.valueColor }]}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.8}
+                          >
+                            ₹ {formatBalanceValue(item.balValue)}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
               )}
             </View>
@@ -621,84 +599,79 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0B5CAD',
   },
-  balancesGrid: {
+  balancesList: {
     width: '100%',
+    gap: 10,
     marginBottom: 8,
   },
-  balancesRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 14,
-    alignItems: 'stretch',
-    width: '100%',
-  },
   balanceCard: {
-    flex: 1,
+    width: '100%',
     backgroundColor: '#FFFFFF',
     borderColor: '#D8E2EC',
     borderWidth: 1,
-    borderLeftWidth: 4,
+    // borderLeftWidth: 4,
     borderRadius: 12,
-    padding: 14,
-    minHeight: 142,
-    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
     elevation: 2,
     shadowColor: '#12263F',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-  },
-  balanceCardPlaceholder: {
-    backgroundColor: 'transparent',
-    borderColor: 'transparent',
-    borderWidth: 0,
-    borderLeftWidth: 0,
-    elevation: 0,
-    shadowOpacity: 0,
-  },
-  balanceCardTop: {
-    marginBottom: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
   },
   balanceIconBg: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  balanceCardMiddle: {
+  balanceInfo: {
     flex: 1,
+    marginHorizontal: 12,
     justifyContent: 'center',
-    paddingVertical: 4,
   },
   balanceHeading: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#475569',
-    lineHeight: 18,
+    color: '#173B63',
+    lineHeight: 19,
   },
-  balanceCardBottom: {
-    marginTop: 6,
+  balanceSubtitle: {
+    fontSize: 12,
+    color: '#697788',
+    marginTop: 2,
+  },
+  balanceValueContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    marginLeft: 4,
   },
   balanceValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   loadingCard: {
     borderLeftColor: '#CBD5E1',
-    alignItems: 'flex-start',
   },
   loadingHeadingPlaceholder: {
-    width: '80%',
+    width: '75%',
     height: 14,
     backgroundColor: '#E2E8F0',
     borderRadius: 4,
-    marginVertical: 10,
+  },
+  loadingSubheadingPlaceholder: {
+    width: '45%',
+    height: 11,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 3,
+    marginTop: 6,
   },
   loadingValuePlaceholder: {
-    width: '60%',
-    height: 18,
+    width: 65,
+    height: 16,
     backgroundColor: '#E2E8F0',
     borderRadius: 4,
   },

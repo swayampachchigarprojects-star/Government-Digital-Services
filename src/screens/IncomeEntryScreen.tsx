@@ -123,28 +123,23 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
     try {
       setSubmitting(true);
 
-      const payload: TxnCreationRequest[] = incomeSubtypeCodes.map((code) => {
-        const item: TxnCreationRequest = {
-          transactionType: 'INCOME',
-          transactionHeadCode: code,
-          date: new Date().toISOString().split('T')[0],
-          amount: parseFloat(subtypeAmounts[code] || '0'),
-        };
-        if (incomeSubtypeCodes.length >= 1){
-          // item.entries = [];
-          // item.entries.push({
-          //   incomeSubtypeCode: code,
-          //   amount: parseFloat(subtypeAmounts[code] || '0'),
-          // });
-        }
-        if (refId) item.reference = refId;
-        if (remarks) item.remark = remarks;
-        return item;
-      });
+      const incomeEntryPayload = {
+        entries: incomeSubtypeCodes.map((code) => {
+          const item: TxnCreationRequest = {
+            transactionType: 'INCOME',
+            transactionHeadCode: code,
+            date: new Date().toISOString().split('T')[0],
+            amount: parseFloat(subtypeAmounts[code] || '0'),
+          };
+          if (refId) item.reference = refId;
+          if (remarks) item.remark = remarks;
+          return item;
+        })
+      }
 
       return apiRequest('/transactions', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(incomeEntryPayload),
       });
     } catch (error) {
       console.error('Failed to submit Income Entry:', error);

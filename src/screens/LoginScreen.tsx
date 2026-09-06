@@ -102,7 +102,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   style={styles.googleIcon}
                   resizeMode="contain"
                 />
-                {isAuthenticating ? <ActivityIndicator color="#0B5CAD" /> : <Text style={styles.googleBtnText}>{t('Continue with Google')}</Text>}
+                {isAuthenticating ? <ActivityIndicator color="#0B5CAD" /> : <Text style={styles.googleBtnText}>{t('Google')}</Text>}
               </TouchableOpacity>
 
               <View style={styles.signupSection}>
