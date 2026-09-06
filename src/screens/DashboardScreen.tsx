@@ -21,7 +21,7 @@ interface DashboardScreenProps {
 }
 
 interface CardTheme {
-  //borderColor: string;
+  borderColor?: string;
   iconBg: string;
   iconColor: string;
   icon: keyof typeof MaterialIcons.glyphMap;

@@ -14,6 +14,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { apiRequest } from '../services/apiClient';
+import { fetchPaymentTypes, PaymentType } from '../services/transactionService';
 
 interface IncomeEntryScreenProps {
   onBack: () => void;
@@ -35,6 +36,7 @@ interface TxnCreationRequest {
   transactionHeadCode: string;
   date: string;
   amount: number;
+  paymentTypeId: string;
   reference?: string;
   remark?: string;
 }
@@ -72,6 +74,13 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
   const [incomeSubTypes, setIncomeSubTypes] = useState<TransactionHead[]>([]);
   const [loadingIncomeSubTypes, setLoadingIncomeSubTypes] = useState(false);
 
+  // Payment Type state
+  const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([]);
+  const [loadingPaymentTypes, setLoadingPaymentTypes] = useState(false);
+  const [paymentTypeId, setPaymentTypeId] = useState('');
+  const [paymentTypeError, setPaymentTypeError] = useState('');
+  const [paymentTypeDropdownVisible, setPaymentTypeDropdownVisible] = useState(false);
+
   // Fetch Income Types
   const fetchIncomeTypes = async () => {
     try {
@@ -91,6 +100,27 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       );
     } finally {
       setLoadingIncomeTypes(false);
+    }
+  };
+
+  // Fetch Payment Types
+  const loadPaymentTypes = async () => {
+    try {
+      setLoadingPaymentTypes(true);
+
+      const data = await fetchPaymentTypes();
+      setPaymentTypes(data);
+    } catch (error) {
+      console.error('Failed to fetch Payment Types:', error);
+
+      setPaymentTypes([]);
+
+      Alert.alert(
+        t('Error'),
+        t('Unable to load Payment Types. Please try again.')
+      );
+    } finally {
+      setLoadingPaymentTypes(false);
     }
   };
 
@@ -130,6 +160,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
             transactionHeadCode: code,
             date: new Date().toISOString().split('T')[0],
             amount: parseFloat(subtypeAmounts[code] || '0'),
+            paymentTypeId: paymentTypeId,
           };
           if (refId) item.reference = refId;
           if (remarks) item.remark = remarks;
@@ -173,9 +204,10 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
     setSubtypeError('');
   }, [incomeType]);
 
-  // Fetch Income Types when screen loads
+  // Fetch Income Types and Payment Types when screen loads
   useEffect(() => {
     fetchIncomeTypes();
+    loadPaymentTypes();
   }, []);
 
   const triggerToast = (message: string) => {
@@ -236,6 +268,13 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       isValid = false;
     }
 
+    if (!paymentTypeId) {
+      setPaymentTypeError(t('Payment Type is required'));
+      isValid = false;
+    } else {
+      setPaymentTypeError('');
+    }
+
     return isValid;
   };
 
@@ -259,6 +298,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setIncomeSubtypeCodes([]);
       setIncomeSubTypes([]);
       setSubtypeAmounts({});
+      setPaymentTypeId('');
       setRemarks('');
       setRefId('');
 
@@ -266,6 +306,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setTypeError('');
       setSubtypeError('');
       setAmountErrors({});
+      setPaymentTypeError('');
 
       // Show success message
       triggerToast(
@@ -283,6 +324,8 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
     const val = parseFloat(subtypeAmounts[code] || '0');
     return sum + (isNaN(val) ? 0 : val);
   }, 0);
+
+  const selectedPaymentType = paymentTypes.find((pt) => pt.paymentTypeId === paymentTypeId);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -438,6 +481,34 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
               );
             })}
 
+            {/* Payment Type Dropdown */}
+            <CustomDropdown
+              label={t('Payment Type')}
+              value={
+                selectedPaymentType
+                  ? t(selectedPaymentType.paymentTypeValue) || selectedPaymentType.paymentTypeValue
+                  : ''
+              }
+              placeholder={
+                loadingPaymentTypes
+                  ? t('Loading Payment Types...')
+                  : t('Select Payment Type')
+              }
+              options={paymentTypes.map((item) => ({
+                label: t(item.paymentTypeValue) || item.paymentTypeValue,
+                value: item.paymentTypeId,
+              }))}
+              onSelect={(val) => {
+                setPaymentTypeId(val);
+                setPaymentTypeError('');
+              }}
+              visible={paymentTypeDropdownVisible}
+              setVisible={setPaymentTypeDropdownVisible}
+              error={paymentTypeError}
+              disabled={loadingPaymentTypes}
+              modalTitle={t('Select Payment Type Modal Title')}
+            />
+
             {/* Remarks Text Area */}
             <View style={styles.formGroup}>
               <View style={styles.labelRow}>
@@ -552,6 +623,14 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                     </View>
                   </View>
                 )}
+              </View>
+              <View style={styles.modalRow}>
+                <Text style={styles.modalLabel}>{t('Payment Type')}</Text>
+                <Text style={styles.modalValue}>
+                  {selectedPaymentType
+                    ? t(selectedPaymentType.paymentTypeValue) || selectedPaymentType.paymentTypeValue
+                    : '-'}
+                </Text>
               </View>
               {!!remarks && (
                 <View style={styles.modalRow}>

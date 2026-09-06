@@ -8,9 +8,12 @@ import {
   ScrollView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
+import { CustomDatePicker } from '../components/CustomDatePicker';
+import { fetchTransactionsByDate, ServicesTransaction } from '../services/transactionService';
 
 interface ServicesScreenProps {
   onBack: () => void;
@@ -18,12 +21,49 @@ interface ServicesScreenProps {
   onNavigateToScreen: (screen: 'income' | 'expense') => void;
 }
 
+const getTodayString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const day = d.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: ServicesScreenProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
 
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayString());
+  const [dateError, setDateError] = useState<string>('');
+  const [transactions, setTransactions] = useState<ServicesTransaction[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState<boolean>(false);
+  const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  const [hasFetched, setHasFetched] = useState<boolean>(false);
+
   const { language, setLanguage, t } = useLanguage();
+
+  const handleGetTransactions = async () => {
+    if (!selectedDate) {
+      setDateError(t('Date is required'));
+      return;
+    }
+    setDateError('');
+    setLoadingTransactions(true);
+    setTransactionsError(null);
+    setHasFetched(true);
+
+    try {
+      const results = await fetchTransactionsByDate(selectedDate);
+      setTransactions(results);
+    } catch (err: any) {
+      console.error('Failed to fetch transactions by date:', err);
+      setTransactions([]);
+      setTransactionsError(err?.message || t('Unable to fetch transactions. Please try again.'));
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
 
   const handleCardPress = (serviceName: string, id: string) => {
     if (id === 'income' || id === 'expense') {
@@ -195,6 +235,169 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
                     </View>
                   </TouchableOpacity>
                 ))}
+              </View>
+
+              {/* Separator */}
+              <View style={styles.separator} />
+
+              {/* Transactions Section */}
+              <View style={styles.transactionsSection}>
+                <View style={styles.transactionsHeaderRow}>
+                  <MaterialIcons name="receipt-long" size={22} color="#0B5CAD" />
+                  <Text style={styles.transactionsLabel}>{t('Transactions')}</Text>
+                </View>
+                <Text style={styles.transactionsSubLabel}>
+                  {t('View transactions recorded on a specific date')}
+                </Text>
+
+                {/* Date Picker */}
+                <View style={styles.datePickerContainer}>
+                  <CustomDatePicker
+                    label={t('Date')}
+                    value={selectedDate}
+                    placeholder={t('Select Date')}
+                    onSelect={(date) => {
+                      setSelectedDate(date);
+                      setDateError('');
+                    }}
+                    error={dateError}
+                    modalTitle={t('Select Date Modal Title')}
+                    maxDate={new Date()}
+                  />
+                </View>
+
+                {/* Get Transactions Button */}
+                <TouchableOpacity
+                  style={[
+                    styles.getTransactionsButton,
+                    loadingTransactions && styles.getTransactionsButtonDisabled,
+                  ]}
+                  onPress={handleGetTransactions}
+                  disabled={loadingTransactions}
+                  activeOpacity={0.85}
+                >
+                  {loadingTransactions ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <MaterialIcons name="search" size={20} color="#FFFFFF" />
+                      <Text style={styles.getTransactionsButtonText}>
+                        {t('Get Transactions')}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {/* Status & Results */}
+                {loadingTransactions && (
+                  <View style={styles.loadingBox}>
+                    <ActivityIndicator size="small" color="#0B5CAD" />
+                    <Text style={styles.loadingText}>{t('Loading')}</Text>
+                  </View>
+                )}
+
+                {!loadingTransactions && !!transactionsError && (
+                  <View style={styles.errorBox}>
+                    <MaterialIcons name="error-outline" size={28} color="#EF4444" />
+                    <Text style={styles.errorTextHeading}>{t('Error')}</Text>
+                    <Text style={styles.errorTextDescription}>{transactionsError}</Text>
+                    <TouchableOpacity
+                      style={styles.retryBtn}
+                      onPress={handleGetTransactions}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.retryBtnText}>{t('Retry')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {!loadingTransactions && !transactionsError && hasFetched && transactions.length === 0 && (
+                  <View style={styles.emptyBox}>
+                    <MaterialIcons name="search-off" size={36} color="#BAC4D0" />
+                    <Text style={styles.emptyTitle}>{t('No transactions found')}</Text>
+                    <Text style={styles.emptySubtitle}>
+                      {t('No transactions found for this date')}
+                    </Text>
+                  </View>
+                )}
+
+                {!loadingTransactions && !transactionsError && hasFetched && transactions.length > 0 && (
+                  <View style={styles.gridCard}>
+                    {/* Grid Header */}
+                    <View style={styles.gridHeaderRow}>
+                      <View style={styles.colType}>
+                        <Text style={styles.gridHeaderCell}>{t('Transaction Type')}</Text>
+                      </View>
+                      <View style={styles.colHead}>
+                        <Text style={styles.gridHeaderCell}>{t('Transaction Head')}</Text>
+                      </View>
+                      <View style={styles.colAmount}>
+                        <Text style={[styles.gridHeaderCell, { textAlign: 'right' }]}>
+                          {t('Amount')}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Grid Rows */}
+                    {transactions.map((txn, index) => {
+                      const isIncome = txn.transactionType === 'INCOME';
+                      const rawHead = txn.transactionHead || txn.transactionHeadName || txn.transactionHeadCode || '-';
+                      const displayHead = t(rawHead) || rawHead;
+                      const formattedAmount = Number(txn.amount || 0).toLocaleString('en-IN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      });
+
+                      return (
+                        <View
+                          key={txn.id || `txn-${index}`}
+                          style={[
+                            styles.gridRow,
+                            index % 2 === 1 && styles.gridRowAlternating,
+                            index === transactions.length - 1 && styles.gridRowLast,
+                          ]}
+                        >
+                          <View style={styles.colType}>
+                            <View
+                              style={[
+                                styles.typePill,
+                                isIncome ? styles.typePillIncome : styles.typePillExpense,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.typePillText,
+                                  isIncome ? styles.typePillTextIncome : styles.typePillTextExpense,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {t(txn.transactionType) || txn.transactionType}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.colHead}>
+                            <Text style={styles.headText} numberOfLines={2}>
+                              {displayHead}
+                            </Text>
+                          </View>
+
+                          <View style={styles.colAmount}>
+                            <Text
+                              style={[
+                                styles.amountText,
+                                isIncome ? { color: '#10B981' } : { color: '#EF4444' },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              ₹ {formattedAmount}
+                            </Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             </View>
           )}
@@ -647,5 +850,212 @@ const styles = StyleSheet.create({
   },
   menuItemTextLogout: {
     color: '#EF4444',
+  },
+  /* Transactions Section Styles */
+  separator: {
+    height: 1,
+    backgroundColor: '#D8E2EC',
+    marginVertical: 24,
+    width: '100%',
+  },
+  transactionsSection: {
+    width: '100%',
+  },
+  transactionsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  transactionsLabel: {
+    color: '#173B63',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  transactionsSubLabel: {
+    color: '#697788',
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  datePickerContainer: {
+    marginBottom: 14,
+  },
+  getTransactionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0B5CAD',
+    borderRadius: 8,
+    height: 48,
+    gap: 8,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#0B5CAD',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  getTransactionsButtonDisabled: {
+    opacity: 0.7,
+  },
+  getTransactionsButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  loadingBox: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D8E2EC',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    color: '#697788',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  errorBox: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FED7D7',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    gap: 10,
+  },
+  errorTextHeading: {
+    color: '#C53030',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  errorTextDescription: {
+    color: '#E53E3E',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  retryBtn: {
+    marginTop: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    backgroundColor: '#EF4444',
+    borderRadius: 6,
+  },
+  retryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  emptyBox: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D8E2EC',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyTitle: {
+    color: '#173B63',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    color: '#8B96A5',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  gridCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D8E2EC',
+    borderWidth: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#12263F',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+  },
+  gridHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F4F7FA',
+    borderBottomWidth: 1,
+    borderBottomColor: '#D8E2EC',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  gridHeaderCell: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#697788',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E4EBF2',
+  },
+  gridRowAlternating: {
+    backgroundColor: '#FAFBFD',
+  },
+  gridRowLast: {
+    borderBottomWidth: 0,
+  },
+  colType: {
+    width: '30%',
+    paddingRight: 6,
+  },
+  colHead: {
+    width: '42%',
+    paddingRight: 6,
+  },
+  colAmount: {
+    width: '28%',
+    alignItems: 'flex-end',
+  },
+  typePill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  typePillIncome: {
+    backgroundColor: '#E6F8F3',
+  },
+  typePillExpense: {
+    backgroundColor: '#FDF2F2',
+  },
+  typePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  typePillTextIncome: {
+    color: '#10B981',
+  },
+  typePillTextExpense: {
+    color: '#EF4444',
+  },
+  headText: {
+    fontSize: 13,
+    color: '#173B63',
+    fontWeight: '500',
+  },
+  amountText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#173B63',
+    textAlign: 'right',
   },
 });

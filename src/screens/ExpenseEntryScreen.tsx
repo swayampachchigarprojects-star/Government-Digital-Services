@@ -14,9 +14,24 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { apiRequest } from '../services/apiClient';
+import { fetchPaymentTypes, PaymentType } from '../services/transactionService';
 
 interface ExpenseEntryScreenProps {
   onBack: () => void;
+}
+
+interface TxnCreationRequest {
+  transactionType: 'EXPENSE';
+  transactionHeadCode: string;
+  date: string;
+  amount: number;
+  paymentTypeId: string;
+  reference?: string;
+  remark?: string;
+}
+
+interface TransactionResponse {
+  txnHeads: TransactionHead[];
 }
 
 interface TransactionHead {
@@ -52,6 +67,13 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
   const [loadingExpenseTypes, setLoadingExpenseTypes] = useState(false);
   const [loadingExpenseSubTypes, setLoadingExpenseSubTypes] = useState(false);
 
+  // Payment Type state
+  const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([]);
+  const [loadingPaymentTypes, setLoadingPaymentTypes] = useState(false);
+  const [paymentTypeId, setPaymentTypeId] = useState('');
+  const [paymentTypeError, setPaymentTypeError] = useState('');
+  const [paymentTypeDropdownVisible, setPaymentTypeDropdownVisible] = useState(false);
+
   // Dropdown visibility
   const [typeDropdownVisible, setTypeDropdownVisible] = useState(false);
   const [subtypeDropdownVisible, setSubtypeDropdownVisible] = useState(false);
@@ -76,11 +98,17 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
     try {
       setLoadingExpenseTypes(true);
 
-      const data = await apiRequest<TransactionHead[]>(
+      const data = await apiRequest<TransactionResponse | TransactionHead[]>(
         '/transaction-heads?transactionType=EXPENSE&level=1'
       );
 
-      setExpenseTypes(data);
+      if (Array.isArray(data)) {
+        setExpenseTypes(data);
+      } else if (data && Array.isArray(data.txnHeads)) {
+        setExpenseTypes(data.txnHeads);
+      } else {
+        setExpenseTypes([]);
+      }
     } catch (error) {
       console.error('Failed to fetch Expense Types:', error);
 
@@ -95,16 +123,43 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
     }
   };
 
+  // Fetch Payment Types
+  const loadPaymentTypes = async () => {
+    try {
+      setLoadingPaymentTypes(true);
+
+      const data = await fetchPaymentTypes();
+      setPaymentTypes(data);
+    } catch (error) {
+      console.error('Failed to fetch Payment Types:', error);
+
+      setPaymentTypes([]);
+
+      Alert.alert(
+        t('Error'),
+        t('Unable to load Payment Types. Please try again.')
+      );
+    } finally {
+      setLoadingPaymentTypes(false);
+    }
+  };
+
   // Fetch Expense Sub type values
   const fetchExpenseSubTypes = async (precedingHeadCode: string) => {
     try {
       setLoadingExpenseSubTypes(true);
 
-      const data = await apiRequest<TransactionHead[]>(
+      const data = await apiRequest<TransactionResponse | TransactionHead[]>(
         `/transaction-heads?transactionType=EXPENSE&precedingHeadCode=${encodeURIComponent(precedingHeadCode)}&level=2`
       );
 
-      setExpenseSubTypes(data);
+      if (Array.isArray(data)) {
+        setExpenseSubTypes(data);
+      } else if (data && Array.isArray(data.txnHeads)) {
+        setExpenseSubTypes(data.txnHeads);
+      } else {
+        setExpenseSubTypes([]);
+      }
     } catch (error) {
       console.error('Failed to fetch Expense Sub Types:', error);
 
@@ -124,18 +179,35 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
     try {
       setSubmitting(true);
 
-      const payload = {
-        transactionType: 'EXPENSE',
-        transactionHeadCode: expenseSubtypeCodes[0] || '',
-        date: new Date().toISOString().split('T')[0],
-        amount: parseFloat(amount),
-        reference: refId,
-        remark: remarks,
-      };
+      const expenseEntryPayload = {
+        entries: expenseSubtypeCodes.map((code) => {
+          const item: TxnCreationRequest = {
+            transactionType: 'EXPENSE',
+            transactionHeadCode: code,
+            date: new Date().toISOString().split('T')[0],
+            amount: parseFloat(amount),
+            paymentTypeId: paymentTypeId,
+          };
+          if (refId) item.reference = refId;
+          if (remarks) item.remark = remarks;
+          return item;
+        })
+      }
+
+
+      // const payload = {
+      //   transactionType: 'EXPENSE',
+      //   transactionHeadCode: expenseSubtypeCodes[0] || '',
+      //   date: new Date().toISOString().split('T')[0],
+      //   amount: parseFloat(amount),
+      //   paymentTypeId: paymentTypeId,
+      //   reference: refId,
+      //   remark: remarks,
+      // };
 
       return apiRequest('/transactions', {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(expenseEntryPayload),
       });
     } catch (error) {
       console.error('Failed to submit Expense Entry:', error);
@@ -152,8 +224,10 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
     setSubtypeError('');
   }, [expenseType]);
 
+  // Fetch Expense Types and Payment Types when screen loads
   useEffect(() => {
     fetchExpenseTypes();
+    loadPaymentTypes();
   }, []);
 
   const triggerToast = (message: string) => {
@@ -199,6 +273,13 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       setAmountError('');
     }
 
+    if (!paymentTypeId) {
+      setPaymentTypeError(t('Payment Type is required'));
+      isValid = false;
+    } else {
+      setPaymentTypeError('');
+    }
+
     return isValid;
   };
 
@@ -208,19 +289,6 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
     }
   };
 
-  // const handleFinalSubmit = () => {
-  //   setShowConfirmModal(false);
-
-  //   // Clear form inputs
-  //   setExpenseType('');
-  //   setExpenseSubtype('');
-  //   setAmount('');
-  //   setRemarks('');
-  //   setRefId('');
-
-  //   // Trigger Success Toast
-  //   triggerToast('Success! Expense entry has been recorded successfully.');
-  // };
   const handleFinalSubmit = async () => {
     try {
       await submitExpenseEntry();
@@ -235,6 +303,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       setExpenseSubtypeCodes([]);
       setExpenseSubTypes([]);
       setAmount('');
+      setPaymentTypeId('');
       setRemarks('');
       setRefId('');
 
@@ -242,6 +311,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       setTypeError('');
       setSubtypeError('');
       setAmountError('');
+      setPaymentTypeError('');
 
       // Show success message
       triggerToast(
@@ -254,6 +324,8 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       );
     }
   };
+
+  const selectedPaymentType = paymentTypes.find((pt) => pt.paymentTypeId === paymentTypeId);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -295,9 +367,9 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
                   ? t('Loading Expense Types...')
                   : t('Select Expense Type')
               }
-              options={expenseTypes.map((item) => t(item.txnName))}
+              options={(expenseTypes || []).map((item) => t(item.txnName))}
               onSelect={(val) => {
-                const selectedType = expenseTypes.find(
+                const selectedType = (expenseTypes || []).find(
                   (item) => t(item.txnName) === val
                 );
 
@@ -330,7 +402,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
                   ? t('Loading Expense Sub Types...')
                   : t('Select Expense Sub Type')
               }
-              options={expenseSubTypes.map((item) => ({
+              options={(expenseSubTypes || []).map((item) => ({
                 label: t(item.txnName),
                 value: item.txnCode,
               }))}
@@ -338,7 +410,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
               selectedValues={expenseSubtypeCodes}
               onMultiSelectChange={(newCodes) => {
                 setExpenseSubtypeCodes(newCodes);
-                const newNames = expenseSubTypes
+                const newNames = (expenseSubTypes || [])
                   .filter((item) => newCodes.includes(item.txnCode))
                   .map((item) => item.txnName);
                 setExpenseSubtypeNames(newNames);
@@ -372,6 +444,34 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
               />
               {!!amountError && <Text style={styles.errorText}>{amountError}</Text>}
             </View>
+
+            {/* Payment Type Dropdown */}
+            <CustomDropdown
+              label={t('Payment Type')}
+              value={
+                selectedPaymentType
+                  ? t(selectedPaymentType.paymentTypeValue) || selectedPaymentType.paymentTypeValue
+                  : ''
+              }
+              placeholder={
+                loadingPaymentTypes
+                  ? t('Loading Payment Types...')
+                  : t('Select Payment Type')
+              }
+              options={paymentTypes.map((item) => ({
+                label: t(item.paymentTypeValue) || item.paymentTypeValue,
+                value: item.paymentTypeId,
+              }))}
+              onSelect={(val) => {
+                setPaymentTypeId(val);
+                setPaymentTypeError('');
+              }}
+              visible={paymentTypeDropdownVisible}
+              setVisible={setPaymentTypeDropdownVisible}
+              error={paymentTypeError}
+              disabled={loadingPaymentTypes}
+              modalTitle={t('Select Payment Type Modal Title')}
+            />
 
             {/* Remarks Text Area */}
             <View style={styles.formGroup}>
@@ -459,6 +559,14 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
               <View style={styles.modalRow}>
                 <Text style={styles.modalLabel}>{t('Amount')}</Text>
                 <Text style={[styles.modalAmount, { color: '#EF4444' }]}>₹ {parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+              </View>
+              <View style={styles.modalRow}>
+                <Text style={styles.modalLabel}>{t('Payment Type')}</Text>
+                <Text style={styles.modalValue}>
+                  {selectedPaymentType
+                    ? t(selectedPaymentType.paymentTypeValue) || selectedPaymentType.paymentTypeValue
+                    : '-'}
+                </Text>
               </View>
               {!!remarks && (
                 <View style={styles.modalRow}>
