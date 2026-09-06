@@ -28,75 +28,11 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
   const { t } = useLanguage();
   const { setSession } = useAuth();
   const googleAuth = useGoogleAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isEmailFocused, setIsEmailFocused] = useState(false);
-  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
-
-  // Validation state
-  const [emailError, setEmailError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [generalError, setGeneralError] = useState('');
   const [accountingEntityId, setAccountingEntityId] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-
-  const validateForm = () => {
-    let isValid = true;
-    let errEmail = '';
-    let errPassword = '';
-    let errGeneral = '';
-
-    const trimmedEmail = email.trim();
-    const trimmedPassword = password.trim();
-
-    if (!trimmedEmail && !trimmedPassword) {
-      errEmail = t('Email address is required');
-      errPassword = t('Password is required');
-      errGeneral = t('Please enter your email address and password to sign in.');
-      isValid = false;
-    } else {
-      if (!trimmedEmail) {
-        errEmail = t('Email address is required');
-        isValid = false;
-      } else if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
-        errEmail = t('Please enter a valid email address');
-        isValid = false;
-      }
-
-      if (!trimmedPassword) {
-        errPassword = t('Password is required');
-        isValid = false;
-      }
-    }
-
-    setEmailError(errEmail);
-    setPasswordError(errPassword);
-    setGeneralError(errGeneral);
-
-    return isValid;
-  };
-
-  const handleLogin = () => {
-    if (!validateForm()) {
-      if (!email.trim() && !password.trim()) {
-        Alert.alert(t('Validation Error'), t('Please enter your email address and password.'));
-      } else if (!email.trim()) {
-        Alert.alert(t('Validation Error'), t('Please enter your email address.'));
-      } else if (!password.trim()) {
-        Alert.alert(t('Validation Error'), t('Please enter your password.'));
-      } else if (emailError) {
-        Alert.alert(t('Validation Error'), emailError);
-      }
-      return;
-    }
-
-    onLoginSuccess();
-  };
-
-  const handleGoogleAuth = async (signup: boolean) => {
+  const handleGoogleAuth = async () => {
     if (isAuthenticating) return;
-    if (signup && !accountingEntityId.trim()) {
+    if (!accountingEntityId.trim()) {
       Alert.alert(t('Validation Error'), t('Accounting entity ID is required'));
       return;
     }
@@ -111,9 +47,10 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         Alert.alert(t('Sign In'), t(googleResult.message));
         return;
       }
-      const token = signup
-        ? await authService.signupWithGoogle(googleResult.idToken, accountingEntityId.trim())
-        : await authService.loginWithGoogle(googleResult.idToken);
+      const token = await authService.signupWithGoogle(
+        googleResult.idToken,
+        accountingEntityId.trim(),
+      );
       await setSession(token);
       onLoginSuccess();
     } catch (error) {
@@ -156,7 +93,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               {/* Google Sign-In Button */}
               <TouchableOpacity
                 style={[styles.googleBtn, isAuthenticating && styles.disabledButton]}
-                onPress={() => { void handleGoogleAuth(false); }}
+                onPress={() => { void handleGoogleAuth(); }}
                 disabled={isAuthenticating}
                 activeOpacity={0.8}
               >
@@ -169,7 +106,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
               </TouchableOpacity>
 
               <View style={styles.signupSection}>
-                <Text style={styles.signupTitle}>{t('New user? Sign up with Google')}</Text>
+                <Text style={styles.signupTitle}>{t('Accounting entity')}</Text>
                 <TextInput
                   style={styles.input}
                   value={accountingEntityId}
@@ -180,14 +117,6 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   accessibilityLabel={t('Accounting entity ID')}
                   editable={!isAuthenticating}
                 />
-                <TouchableOpacity
-                  style={[styles.signupBtn, isAuthenticating && styles.disabledButton]}
-                  onPress={() => { void handleGoogleAuth(true); }}
-                  disabled={isAuthenticating}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.signupBtnText}>{t('Sign up with Google')}</Text>
-                </TouchableOpacity>
               </View>
 
               {/* Footer Links */}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { configureApiClient } from '../services/apiClient';
 import { clearStoredToken, getStoredToken, storeToken } from '../services/tokenStorage';
 
@@ -14,24 +14,27 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
+  const tokenRef = useRef<string | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
 
   const logout = async () => {
+    tokenRef.current = null;
     setToken(null);
     await clearStoredToken();
   };
 
   useEffect(() => {
     configureApiClient({
-      getToken: () => token,
+      getToken: () => tokenRef.current,
       onUnauthorized: () => { void logout(); },
     });
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
     void getStoredToken().then((storedToken) => {
       if (mounted) {
+        tokenRef.current = storedToken;
         setToken(storedToken);
         setIsHydrating(false);
       }
@@ -47,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isHydrating,
     setSession: async (nextToken: string) => {
       await storeToken(nextToken);
+      tokenRef.current = nextToken;
       setToken(nextToken);
     },
     logout,
