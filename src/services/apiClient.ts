@@ -17,6 +17,10 @@ type ApiClientOptions = {
   onUnauthorized: () => void;
 };
 
+export type ApiRequestOptions = RequestInit & {
+  authenticated?: boolean;
+};
+
 let options: ApiClientOptions = {
   getToken: () => null,
   onUnauthorized: () => undefined,
@@ -40,20 +44,22 @@ function getErrorMessage(status: number): string {
 
 export async function apiRequest<T>(
   path: string,
-  init: RequestInit = {},
+  init: ApiRequestOptions = {},
 ): Promise<T> {
-  const headers = new Headers(init.headers);
+  const { authenticated = false, ...requestInit } = init;
+  const headers = new Headers(requestInit.headers);
   headers.set('Accept', 'application/json');
-  if (init.body !== undefined) headers.set('Content-Type', 'application/json');
+  if (requestInit.body !== undefined) headers.set('Content-Type', 'application/json');
 
   const token = options.getToken();
-  if (token && !path.startsWith('/auth/')) {
+  const isPublicAuthRequest = path === '/auth/login/google' || path === '/auth/signup/google';
+  if (token && (authenticated || !path.startsWith('/auth/'))) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
   let response: Response;
   try {
-    response = await fetch(`${config.apiBaseUrl}${path}`, { ...init, headers });
+    response = await fetch(`${config.apiBaseUrl}${path}`, { ...requestInit, headers });
   } catch {
     throw new ApiError(0, 'Unable to connect to the server. Please try again.');
   }
@@ -66,7 +72,7 @@ export async function apiRequest<T>(
     body = undefined;
   }
 
-  if (response.status === 401 && !path.startsWith('/auth/')) {
+  if (response.status === 401 && !isPublicAuthRequest && !path.endsWith('/logout')) {
     options.onUnauthorized();
   }
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { configureApiClient } from '../services/apiClient';
+import { authService } from '../services/authService';
 import { clearStoredToken, getStoredToken, storeToken } from '../services/tokenStorage';
 
 interface AuthContextValue {
@@ -15,18 +16,40 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const tokenRef = useRef<string | null>(null);
+  const logoutInFlightRef = useRef<Promise<void> | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
 
-  const logout = async () => {
+  const clearLocalSession = async () => {
     tokenRef.current = null;
     setToken(null);
     await clearStoredToken();
   };
 
+  const logout = async () => {
+    if (logoutInFlightRef.current) return logoutInFlightRef.current;
+
+    const logoutRequest = (async () => {
+      try {
+        if (tokenRef.current) await authService.logout();
+      } catch {
+        // Local cleanup must still complete when the backend is unavailable.
+      } finally {
+        await clearLocalSession();
+      }
+    })();
+
+    logoutInFlightRef.current = logoutRequest;
+    try {
+      await logoutRequest;
+    } finally {
+      logoutInFlightRef.current = null;
+    }
+  };
+
   useEffect(() => {
     configureApiClient({
       getToken: () => tokenRef.current,
-      onUnauthorized: () => { void logout(); },
+      onUnauthorized: () => { void clearLocalSession(); },
     });
   }, []);
 

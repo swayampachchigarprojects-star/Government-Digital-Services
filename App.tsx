@@ -27,6 +27,11 @@ function AppContent() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   const { isAuthenticated, isHydrating, logout } = useAuth();
 
+  const handleLogout = async () => {
+    await logout();
+    setCurrentScreen('login');
+  };
+
   useEffect(() => {
     if (isHydrating) return;
     if (!isAuthenticated && currentScreen !== 'login') {
@@ -51,7 +56,7 @@ function AppContent() {
       case 'dashboard':
         return (
           <DashboardScreen
-            onLogout={() => { void logout(); setCurrentScreen('login'); }}
+            onLogout={handleLogout}
             onNavigateToServices={() => setCurrentScreen('services')}
             onNavigateToProfile={() => setCurrentScreen('profile')}
           />
@@ -60,7 +65,7 @@ function AppContent() {
         return (
           <ServicesScreen
             onBack={() => setCurrentScreen('dashboard')}
-            onLogout={() => { void logout(); setCurrentScreen('login'); }}
+            onLogout={handleLogout}
             onNavigateToScreen={(screen) => setCurrentScreen(screen)}
           />
         );
@@ -81,7 +86,7 @@ function AppContent() {
         return (
           <ProfileScreen
             onBack={() => setCurrentScreen('dashboard')}
-            onLogout={() => { void logout(); setCurrentScreen('login'); }}
+            onLogout={handleLogout}
           />
         );
       default:

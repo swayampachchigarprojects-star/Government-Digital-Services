@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -20,6 +21,14 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
   const { language, setLanguage, t } = useLanguage();
 
   const handleLogoutPress = () => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        `${t('Sign Out')}\n\n${t('Are you sure you want to sign out from the portal?')}`,
+      );
+      if (confirmed) onLogout();
+      return;
+    }
+
     Alert.alert(
       t('Sign Out'),
       t('Are you sure you want to sign out from the portal?'),

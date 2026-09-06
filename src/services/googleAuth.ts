@@ -11,7 +11,7 @@ declare global {
       accounts: {
         id: {
           initialize: (options: { client_id: string; callback: (response: GoogleCredentialResponse) => void; auto_select?: boolean }) => void;
-          prompt: (listener?: (notification: GooglePromptNotification) => void) => void;
+          prompt: () => void;
         };
       };
     };
@@ -20,11 +20,6 @@ declare global {
 
 interface GoogleCredentialResponse {
   credential?: string;
-}
-
-interface GooglePromptNotification {
-  isNotDisplayed: () => boolean;
-  isSkippedMoment: () => boolean;
 }
 
 let googleScriptPromise: Promise<void> | null = null;
@@ -66,11 +61,7 @@ async function getWebGoogleIdToken(): Promise<GoogleAuthResult> {
           ? { type: 'success', idToken: response.credential }
           : { type: 'error', message: 'Google did not return an ID token.' }),
       });
-      window.google?.accounts.id.prompt((notification: GooglePromptNotification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          resolve({ type: 'cancelled' });
-        }
-      });
+      window.google?.accounts.id.prompt();
     });
   } catch {
     return { type: 'error', message: 'Unable to sign in with Google. Please try again.' };
