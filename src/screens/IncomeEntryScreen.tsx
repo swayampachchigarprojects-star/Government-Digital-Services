@@ -19,10 +19,24 @@ interface IncomeEntryScreenProps {
   onBack: () => void;
 }
 
-// this interrface is to support API call
+
+interface TransactionResponse {
+  txnHeads: TransactionHead[];
+}
+
+// this interface is to support API call
 interface TransactionHead {
   txnCode: string;
   txnName: string;
+}
+
+interface TxnCreationRequest {
+  transactionType: 'INCOME' | 'EXPENSE';
+  transactionHeadCode: string;
+  date: string;
+  amount: number;
+  reference?: string;
+  remark?: string;
 }
 
 // Custom dropdown data mapping
@@ -40,7 +54,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
   const [incomeType, setIncomeType] = useState('');
   const [incomeSubtypeNames, setIncomeSubtypeNames] = useState<string[]>([]);
   const [incomeSubtypeCodes, setIncomeSubtypeCodes] = useState<string[]>([]);
-  const [amount, setAmount] = useState('');
+  const [subtypeAmounts, setSubtypeAmounts] = useState<Record<string, string>>({});
   const [remarks, setRemarks] = useState('');
   const [refId, setRefId] = useState('');
 
@@ -63,11 +77,11 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
     try {
       setLoadingIncomeTypes(true);
 
-      const data = await apiRequest<TransactionHead[]>(
+      const data = await apiRequest<TransactionResponse>(
         '/transaction-heads?transactionType=INCOME&level=1'
       );
 
-      setIncomeTypes(data);
+      setIncomeTypes(data?.txnHeads || []);
     } catch (error) {
       console.error('Failed to fetch Income Types:', error);
 
@@ -85,11 +99,11 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
     try {
       setLoadingIncomeSubTypes(true);
 
-      const data = await apiRequest<TransactionHead[]>(
-        `/transaction-heads?transactionType=INCOME&primaryHeadCode=${encodeURIComponent(primaryHeadCode)}&level=2`
+      const data = await apiRequest<TransactionResponse>(
+        `/transaction-heads?transactionType=INCOME&precedingHeadCode=${encodeURIComponent(primaryHeadCode)}&level=2`
       );
 
-      setIncomeSubTypes(data);
+      setIncomeSubTypes(data?.txnHeads || []);
     } catch (error) {
       console.error('Failed to fetch Income Sub Entries:', error);
 
@@ -109,14 +123,24 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
     try {
       setSubmitting(true);
 
-      const payload = {
-        transactionType: 'INCOME',
-        transactionHeadCode: incomeSubtypeCodes[0] || '',
-        date: new Date().toISOString().split('T')[0],
-        amount: parseFloat(amount),
-        reference: refId,
-        remark: remarks,
-      };
+      const payload: TxnCreationRequest[] = incomeSubtypeCodes.map((code) => {
+        const item: TxnCreationRequest = {
+          transactionType: 'INCOME',
+          transactionHeadCode: code,
+          date: new Date().toISOString().split('T')[0],
+          amount: parseFloat(subtypeAmounts[code] || '0'),
+        };
+        if (incomeSubtypeCodes.length >= 1){
+          // item.entries = [];
+          // item.entries.push({
+          //   incomeSubtypeCode: code,
+          //   amount: parseFloat(subtypeAmounts[code] || '0'),
+          // });
+        }
+        if (refId) item.reference = refId;
+        if (remarks) item.remark = remarks;
+        return item;
+      });
 
       return apiRequest('/transactions', {
         method: 'POST',
@@ -131,24 +155,26 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
   };
 
   // Focus states
-  const [isAmountFocused, setIsAmountFocused] = useState(false);
+  const [focusedAmountCode, setFocusedAmountCode] = useState<string | null>(null);
   const [isRemarksFocused, setIsRemarksFocused] = useState(false);
   const [isRefIdFocused, setIsRefIdFocused] = useState(false);
 
   // Errors
   const [typeError, setTypeError] = useState('');
   const [subtypeError, setSubtypeError] = useState('');
-  const [amountError, setAmountError] = useState('');
+  const [amountErrors, setAmountErrors] = useState<Record<string, string>>({});
 
   // Modal and Toast States
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  // Update subtypes when type changes
+  // Update subtypes and clear amounts when type changes
   useEffect(() => {
     setIncomeSubtypeNames([]);
     setIncomeSubtypeCodes([]);
+    setSubtypeAmounts({});
+    setAmountErrors({});
     setSubtypeError('');
   }, [incomeType]);
 
@@ -165,11 +191,20 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
     }, 3000);
   };
 
-  const handleAmountChange = (text: string) => {
+  const handleSubtypeAmountChange = (code: string, text: string) => {
     // Only allow positive numbers with up to 2 decimal points
     if (text === '' || /^\d+\.?\d{0,2}$/.test(text)) {
-      setAmount(text);
-      if (amountError) setAmountError('');
+      setSubtypeAmounts((prev) => ({
+        ...prev,
+        [code]: text,
+      }));
+      if (amountErrors[code]) {
+        setAmountErrors((prev) => {
+          const next = { ...prev };
+          delete next[code];
+          return next;
+        });
+      }
     }
   };
 
@@ -189,15 +224,21 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setSubtypeError('');
     }
 
-    const amtVal = parseFloat(amount);
-    if (!amount) {
-      setAmountError(t('Amount is required'));
+    const nextAmountErrors: Record<string, string> = {};
+    for (const code of incomeSubtypeCodes) {
+      const val = subtypeAmounts[code];
+      const amtVal = parseFloat(val);
+      if (!val || val.trim() === '') {
+        nextAmountErrors[code] = t('Amount is required');
+        isValid = false;
+      } else if (isNaN(amtVal) || amtVal <= 0) {
+        nextAmountErrors[code] = t('Amount must be a positive number greater than 0');
+        isValid = false;
+      }
+    }
+    setAmountErrors(nextAmountErrors);
+    if (Object.keys(nextAmountErrors).length > 0) {
       isValid = false;
-    } else if (isNaN(amtVal) || amtVal <= 0) {
-      setAmountError(t('Amount must be a positive number greater than 0'));
-      isValid = false;
-    } else {
-      setAmountError('');
     }
 
     return isValid;
@@ -222,14 +263,14 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setIncomeSubtypeNames([]);
       setIncomeSubtypeCodes([]);
       setIncomeSubTypes([]);
-      setAmount('');
+      setSubtypeAmounts({});
       setRemarks('');
       setRefId('');
 
       // Clear validation errors
       setTypeError('');
       setSubtypeError('');
-      setAmountError('');
+      setAmountErrors({});
 
       // Show success message
       triggerToast(
@@ -242,6 +283,11 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       );
     }
   };
+
+  const totalAmount = incomeSubtypeCodes.reduce((sum, code) => {
+    const val = parseFloat(subtypeAmounts[code] || '0');
+    return sum + (isNaN(val) ? 0 : val);
+  }, 0);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -332,6 +378,28 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                 if (newCodes.length > 0) {
                   setSubtypeError('');
                 }
+
+                // Immediately synchronize amounts: preserve existing values for remaining codes, drop removed
+                setSubtypeAmounts((prev) => {
+                  const updated: Record<string, string> = {};
+                  for (const code of newCodes) {
+                    if (prev[code] !== undefined) {
+                      updated[code] = prev[code];
+                    }
+                  }
+                  return updated;
+                });
+
+                // Clear errors for removed codes
+                setAmountErrors((prev) => {
+                  const updated: Record<string, string> = {};
+                  for (const code of newCodes) {
+                    if (prev[code]) {
+                      updated[code] = prev[code];
+                    }
+                  }
+                  return updated;
+                });
               }}
               doneButtonText={t('Done')}
               visible={subtypeDropdownVisible}
@@ -340,25 +408,40 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
               modalTitle={t('Select Income Sub Entry Modal Title')}
             />
 
-            {/* Amount Input */}
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>{t('Amount (₹)')}</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  isAmountFocused && styles.inputFocused,
-                  !!amountError && styles.inputError,
-                ]}
-                value={amount}
-                onChangeText={handleAmountChange}
-                placeholder={t('Enter amount (e.g. 1500.50)')}
-                placeholderTextColor="#8B96A5"
-                keyboardType="decimal-pad"
-                onFocus={() => setIsAmountFocused(true)}
-                onBlur={() => setIsAmountFocused(false)}
-              />
-              {!!amountError && <Text style={styles.errorText}>{amountError}</Text>}
-            </View>
+            {/* Dynamic Amount Inputs per selected subtype */}
+            {incomeSubtypeCodes.map((code) => {
+              const subtype = incomeSubTypes.find((item) => item.txnCode === code);
+              const displayName = subtype ? t(subtype.txnName) : code;
+              const isFocused = focusedAmountCode === code;
+              const error = amountErrors[code];
+
+              return (
+                <View key={code} style={styles.formGroup}>
+                  <Text style={styles.label}>
+                    {`${t('Amount (₹)')} — ${displayName}`}
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      isFocused && styles.inputFocused,
+                      !!error && styles.inputError,
+                    ]}
+                    value={subtypeAmounts[code] || ''}
+                    onChangeText={(text) => handleSubtypeAmountChange(code, text)}
+                    placeholder={t('Enter amount (e.g. 1500.50)')}
+                    placeholderTextColor="#8B96A5"
+                    keyboardType="decimal-pad"
+                    onFocus={() => setFocusedAmountCode(code)}
+                    onBlur={() => {
+                      if (focusedAmountCode === code) {
+                        setFocusedAmountCode(null);
+                      }
+                    }}
+                  />
+                  {!!error && <Text style={styles.errorText}>{error}</Text>}
+                </View>
+              );
+            })}
 
             {/* Remarks Text Area */}
             <View style={styles.formGroup}>
@@ -445,7 +528,35 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
               </View>
               <View style={styles.modalRow}>
                 <Text style={styles.modalLabel}>{t('Amount')}</Text>
-                <Text style={styles.modalAmount}>₹ {parseFloat(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                {incomeSubtypeCodes.length === 1 ? (
+                  <Text style={styles.modalAmount}>
+                    ₹ {(parseFloat(subtypeAmounts[incomeSubtypeCodes[0]] || '0') || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Text>
+                ) : (
+                  <View style={styles.modalSubtypeAmountList}>
+                    {incomeSubtypeCodes.map((code) => {
+                      const subtype = incomeSubTypes.find((item) => item.txnCode === code);
+                      const displayName = subtype ? t(subtype.txnName) : code;
+                      const amtVal = parseFloat(subtypeAmounts[code] || '0') || 0;
+                      return (
+                        <View key={code} style={styles.modalSubtypeRow}>
+                          <Text style={styles.modalSubtypeLabel}>{displayName}</Text>
+                          <Text style={styles.modalSubtypeAmount}>
+                            ₹ {amtVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                    <View style={[styles.modalSubtypeRow, styles.modalTotalRow]}>
+                      <Text style={[styles.modalSubtypeLabel, styles.modalTotalLabel]}>
+                        {t('Total Balance')}
+                      </Text>
+                      <Text style={[styles.modalAmount, styles.modalTotalAmount]}>
+                        ₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
               {!!remarks && (
                 <View style={styles.modalRow}>
@@ -1008,6 +1119,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#10B981',
     fontWeight: '700',
+  },
+  modalSubtypeAmountList: {
+    width: '100%',
+    gap: 4,
+    marginTop: 4,
+  },
+  modalSubtypeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  modalSubtypeLabel: {
+    fontSize: 13,
+    color: '#354052',
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 8,
+  },
+  modalSubtypeAmount: {
+    fontSize: 14,
+    color: '#173B63',
+    fontWeight: '600',
+  },
+  modalTotalRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#D8E2EC',
+    paddingTop: 8,
+    marginTop: 4,
+  },
+  modalTotalLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#173B63',
+  },
+  modalTotalAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#10B981',
   },
   modalActions: {
     flexDirection: 'row',
