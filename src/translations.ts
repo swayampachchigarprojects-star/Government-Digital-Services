@@ -215,9 +215,29 @@ export const translations = {
     "Total Income": "કુલ આવક",
     "Total Expense": "કુલ ખર્ચ",
     "View Services": "સેવાઓ જુઓ",
-    "Dashboard Overview": "ડેશબોર્ડ વિહંગાવલોકન"
+    "Dashboard Overview": "ડેશબોર્ડ વિહંગાવલોકન",
+    "Balances": "સિલક",
+    "Balance": "સિલક",
+    "Opening Balance": "શરૂઆતની સિલક",
+    "Closing Balance": "આખર સિલક",
+    "Cash in Hand": "રોકડ સિલક",
+    "Bank Balance": "બેંક સિલક",
+    "Net Balance": "ચોખ્ખી સિલક",
+    "Current Balance": "હાલની સિલક",
+    "Total Balance": "કુલ સિલક",
+    "Cash": "રોકડ",
+    "Bank": "બેંક",
+    "No balance records found": "કોઈ સિલક રેકોર્ડ મળ્યા નથી",
+    "Unable to load balance data. Please try again.": "સિલક ડેટા લોડ કરવામાં અસમર્થ. કૃપા કરીને ફરી પ્રયાસ કરો.",
+    "Retry": "ફરી પ્રયાસ કરો",
+    "Refresh": "રિફ્રેશ",
+    "Check network connection or try again": "નેટવર્ક કનેક્શન તપાસો અથવા ફરી પ્રયાસ કરો",
+    "No balance accounts currently associated with this entity": "આ એકમ સાથે હાલમાં કોઈ સિલક ખાતા સંકળાયેલા નથી",
+    "Reports": "અહેવાલો",
+    "Profile": "પ્રોફાઇલ"
   },
   en: {
     // English values are matched exactly with keys
   }
 } as const;
+

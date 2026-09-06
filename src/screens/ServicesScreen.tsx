@@ -15,7 +15,7 @@ import { useLanguage } from '../../src/contexts/LanguageContext';
 interface ServicesScreenProps {
   onBack: () => void;
   onLogout: () => void;
-  onNavigateToScreen: (screen: 'income' | 'expense' | 'report') => void;
+  onNavigateToScreen: (screen: 'income' | 'expense') => void;
 }
 
 export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: ServicesScreenProps) {
@@ -26,7 +26,7 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
   const { language, setLanguage, t } = useLanguage();
 
   const handleCardPress = (serviceName: string, id: string) => {
-    if (id === 'income' || id === 'expense' || id === 'report') {
+    if (id === 'income' || id === 'expense') {
       onNavigateToScreen(id);
     } else {
       Alert.alert(
@@ -70,14 +70,14 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
       color: '#EF4444', // crimson/red
       bgTint: '#FDF2F2',
     },
-    {
-      id: 'report',
-      title: t('Report'),
-      description: t('Generate financial reports, view visual analytics, and export summaries.'),
-      icon: 'assessment' as const,
-      color: '#0B5CAD', // royal blue
-      bgTint: '#EEF6FC',
-    },
+    // {
+    //   id: 'report',
+    //   title: t('Report'),
+    //   description: t('Generate financial reports, view visual analytics, and export summaries.'),
+    //   icon: 'assessment' as const,
+    //   color: '#0B5CAD', // royal blue
+    //   bgTint: '#EEF6FC',
+    // },
   ];
 
   return (
@@ -91,52 +91,20 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.logoAndTitle}>
-                <TouchableOpacity
+                {/* <TouchableOpacity
                   style={styles.backButtonHeader}
                   onPress={onBack}
                   activeOpacity={0.6}
                 >
                   <MaterialIcons name="arrow-back" size={24} color="#173B63" />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>GS</Text>
                 </View>
                 <View style={styles.titleContainer}>
-                  <Text style={styles.headerTitle}>{t('Government Digital Services')}</Text>
-                  <Text style={styles.headerSubtitle}>{t('Administration Services')}</Text>
+                  <Text style={styles.headerTitle}>{t('Lekha')}</Text>
+                  <Text style={styles.headerSubtitle}>{t('Accounting Services')}</Text>
                 </View>
-              </View>
-
-              <View style={styles.headerActions}>
-                <TouchableOpacity
-                  style={styles.languageButton}
-                  onPress={() => {
-                    setShowLanguageMenu(!showLanguageMenu);
-                    setShowMenu(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <MaterialIcons
-                    name="language"
-                    size={26}
-                    color="#0B5CAD"
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.profileAvatarButton}
-                  onPress={() => {
-                    setShowMenu(!showMenu);
-                    setShowLanguageMenu(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <MaterialIcons
-                    name="account-circle"
-                    size={40}
-                    color="#0B5CAD"
-                  />
-                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -207,10 +175,6 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
           ) : (
             /* Services Grid View */
             <View>
-              {/* Section title */}
-              <Text style={styles.sectionTitle}>{t('Services')}</Text>
-              <Text style={styles.sectionSubtitle}>{t('Select a service module to perform operations')}</Text>
-
               {/* Services Cards List */}
               <View style={styles.cardsContainer}>
                 {services.map((service) => (

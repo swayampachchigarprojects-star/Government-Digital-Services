@@ -12,14 +12,113 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
-import { fetchDashboardSummary, DashboardSummary } from '../services/dashboardService';
+import { fetchBalances, BalanceItem } from '../services/dashboardService';
 
 interface DashboardScreenProps {
   onLogout: () => void;
   onNavigateToServices: () => void;
+  onNavigateToProfile?: () => void;
 }
 
-export function DashboardScreen({ onLogout, onNavigateToServices }: DashboardScreenProps) {
+interface CardTheme {
+  borderColor: string;
+  iconBg: string;
+  iconColor: string;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  valueColor: string;
+}
+
+const CARD_THEMES: CardTheme[] = [
+  {
+    borderColor: '#10B981', // Emerald
+    iconBg: '#E6F8F3',
+    iconColor: '#10B981',
+    icon: 'account-balance-wallet',
+    valueColor: '#0E835C',
+  },
+  {
+    borderColor: '#0B5CAD', // Government Blue
+    iconBg: '#EEF6FC',
+    iconColor: '#0B5CAD',
+    icon: 'account-balance',
+    valueColor: '#0B5CAD',
+  },
+  {
+    borderColor: '#F59E0B', // Amber
+    iconBg: '#FEF3C7',
+    iconColor: '#D97706',
+    icon: 'savings',
+    valueColor: '#B45309',
+  },
+  {
+    borderColor: '#8B5CF6', // Violet
+    iconBg: '#F3E8FF',
+    iconColor: '#7C3AED',
+    icon: 'payments',
+    valueColor: '#6D28D9',
+  },
+  {
+    borderColor: '#06B6D4', // Teal / Cyan
+    iconBg: '#ECFEFF',
+    iconColor: '#0891B2',
+    icon: 'monetization-on',
+    valueColor: '#0E7490',
+  },
+  {
+    borderColor: '#EF4444', // Crimson / Red
+    iconBg: '#FDF2F2',
+    iconColor: '#EF4444',
+    icon: 'receipt-long',
+    valueColor: '#DC2626',
+  },
+];
+
+function getCardTheme(index: number, balType?: string): CardTheme {
+  if (balType) {
+    const lower = balType.toLowerCase();
+    if (lower.includes('income')) {
+      return CARD_THEMES[0];
+    }
+    if (lower.includes('expense')) {
+      return CARD_THEMES[5];
+    }
+    if (lower.includes('bank')) {
+      return CARD_THEMES[1];
+    }
+    if (lower.includes('cash')) {
+      return CARD_THEMES[2];
+    }
+  }
+  return CARD_THEMES[index % CARD_THEMES.length];
+}
+
+function formatBalanceValue(val: number | string | undefined | null): string {
+  if (val === undefined || val === null || val === '') {
+    return '0.00';
+  }
+  const num = typeof val === 'number' ? val : Number(val);
+  if (!isNaN(num)) {
+    return num.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+  return String(val);
+}
+
+const chunkBalances = (items: BalanceItem[]): BalanceItem[][] => {
+  const rows: BalanceItem[][] = [];
+  for (let i = 0; i < items.length; i += 2) {
+    rows.push(items.slice(i, i + 2));
+  }
+  return rows;
+};
+
+export function DashboardScreen({
+  onLogout,
+  onNavigateToServices,
+  onNavigateToProfile,
+}: DashboardScreenProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
@@ -27,7 +126,7 @@ export function DashboardScreen({ onLogout, onNavigateToServices }: DashboardScr
   const { language, setLanguage, t } = useLanguage();
 
   // API States
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [balances, setBalances] = useState<BalanceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -35,12 +134,16 @@ export function DashboardScreen({ onLogout, onNavigateToServices }: DashboardScr
     try {
       setLoading(true);
       setApiError(null);
-      const data = await fetchDashboardSummary();
-      setSummary(data);
+      const data = await fetchBalances();
+      if (data && Array.isArray(data.balances)) {
+        setBalances(data.balances);
+      } else {
+        setBalances([]);
+      }
     } catch (error) {
-      console.error('Failed to load dashboard summary:', error);
-      setSummary(null);
-      setApiError(t('Data retrieval is pending backend API availability'));
+      console.error('Failed to load balances:', error);
+      setBalances([]);
+      setApiError(t('Unable to load balance data. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -64,7 +167,11 @@ export function DashboardScreen({ onLogout, onNavigateToServices }: DashboardScr
 
   const handleMyProfilePress = () => {
     setShowMenu(false);
-    setShowProfile(true);
+    if (onNavigateToProfile) {
+      onNavigateToProfile();
+    } else {
+      setShowProfile(true);
+    }
   };
 
   return (
@@ -82,12 +189,12 @@ export function DashboardScreen({ onLogout, onNavigateToServices }: DashboardScr
                   <Text style={styles.badgeText}>GS</Text>
                 </View>
                 <View style={styles.titleContainer}>
-                  <Text style={styles.headerTitle}>{t('Government Digital Services')}</Text>
-                  <Text style={styles.headerSubtitle}>{t('Administration Services')}</Text>
+                  <Text style={styles.headerTitle}>{t('Lekha')}</Text>
+                  <Text style={styles.headerSubtitle}>{t('Accounting Services')}</Text>
                 </View>
               </View>
 
-              <View style={styles.headerActions}>
+              {/* <View style={styles.headerActions}>
                 <TouchableOpacity
                   style={styles.languageButton}
                   onPress={() => {
@@ -117,7 +224,7 @@ export function DashboardScreen({ onLogout, onNavigateToServices }: DashboardScr
                     color="#0B5CAD"
                   />
                 </TouchableOpacity>
-              </View>
+              </View> */}
             </View>
           </View>
 
@@ -187,71 +294,133 @@ export function DashboardScreen({ onLogout, onNavigateToServices }: DashboardScr
           ) : (
             /* Dashboard Main Content */
             <View>
-              {/* Section Title */}
-              <Text style={styles.sectionTitle}>{t('Dashboard Overview')}</Text>
-              <Text style={styles.sectionSubtitle}>{t('Real-time updates of village revenue operations')}</Text>
-
-              {/* Pending API Warning Banner */}
+              {/* Error / Warning Banner */}
               {apiError && (
                 <View style={styles.warningBanner}>
-                  <MaterialIcons name="info-outline" size={20} color="#0B5CAD" />
-                  <Text style={styles.warningBannerText}>{apiError}</Text>
+                  <View style={styles.warningBannerIconText}>
+                    <MaterialIcons name="error-outline" size={20} color="#DC2626" />
+                    <Text style={styles.warningBannerText}>{apiError}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.bannerRetryButton}
+                    onPress={loadDashboardData}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons name="refresh" size={15} color="#0B5CAD" />
+                    <Text style={styles.bannerRetryText}>{t('Retry')}</Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
-              {/* Statistics Cards Row */}
-              <View style={styles.statsRow}>
-                {/* Total Income Card */}
-                <View style={[styles.statsCard, styles.incomeCard]}>
-                  <View style={[styles.statsIconBg, { backgroundColor: '#E6F8F3' }]}>
-                    <MaterialIcons name="trending-up" size={26} color="#10B981" />
+              {/* Dynamic Balance Cards / Loading / Empty States */}
+              {loading ? (
+                /* Loading Skeletons */
+                <View style={styles.balancesRow}>
+                  <View style={[styles.balanceCard, styles.loadingCard]}>
+                    <View style={[styles.balanceIconBg, { backgroundColor: '#F0F4F8' }]}>
+                      <ActivityIndicator size="small" color="#0B5CAD" />
+                    </View>
+                    <View style={styles.loadingHeadingPlaceholder} />
+                    <View style={styles.loadingValuePlaceholder} />
                   </View>
-                  <Text style={styles.statsLabel}>{t('Total Income')}</Text>
-                  {loading ? (
-                    <ActivityIndicator size="small" color="#10B981" style={styles.statsLoader} />
-                  ) : (
-                    <Text style={[styles.statsValue, { color: '#10B981' }]}>
-                      ₹ {summary ? summary.totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}
-                    </Text>
-                  )}
-                </View>
-
-                {/* Total Expense Card */}
-                <View style={[styles.statsCard, styles.expenseCard]}>
-                  <View style={[styles.statsIconBg, { backgroundColor: '#FDF2F2' }]}>
-                    <MaterialIcons name="trending-down" size={26} color="#EF4444" />
+                  <View style={[styles.balanceCard, styles.loadingCard]}>
+                    <View style={[styles.balanceIconBg, { backgroundColor: '#F0F4F8' }]}>
+                      <ActivityIndicator size="small" color="#0B5CAD" />
+                    </View>
+                    <View style={styles.loadingHeadingPlaceholder} />
+                    <View style={styles.loadingValuePlaceholder} />
                   </View>
-                  <Text style={styles.statsLabel}>{t('Total Expense')}</Text>
-                  {loading ? (
-                    <ActivityIndicator size="small" color="#EF4444" style={styles.statsLoader} />
-                  ) : (
-                    <Text style={[styles.statsValue, { color: '#EF4444' }]}>
-                      ₹ {summary ? summary.totalExpense.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}
-                    </Text>
-                  )}
                 </View>
-              </View>
-
-              {/* View Services Card (Action Card) */}
-              <TouchableOpacity
-                style={styles.servicesCard}
-                onPress={onNavigateToServices}
-                activeOpacity={0.85}
-              >
-                <View style={[styles.servicesIconBg, { backgroundColor: '#EEF6FC' }]}>
-                  <MaterialIcons name="apps" size={30} color="#0B5CAD" />
-                </View>
-                <View style={styles.servicesContent}>
-                  <Text style={styles.servicesTitle}>{t('Services')}</Text>
-                  <Text style={styles.servicesDescription}>
-                    {t('Select a service module to perform operations')}
+              ) : balances.length === 0 ? (
+                /* Empty State */
+                <View style={styles.emptyCard}>
+                  <View style={styles.emptyIconBg}>
+                    <MaterialIcons name="account-balance-wallet" size={32} color="#8592A3" />
+                  </View>
+                  <Text style={styles.emptyCardTitle}>{t('No balance records found')}</Text>
+                  <Text style={styles.emptyCardSubtitle}>
+                    {apiError
+                      ? t('Check network connection or try again')
+                      : t('No balance accounts currently associated with this entity')}
                   </Text>
-                  <View style={styles.servicesFooter}>
-                    <Text style={styles.servicesActionText}>{t('View Services')}</Text>
-                    <MaterialIcons name="chevron-right" size={18} color="#0B5CAD" />
-                  </View>
+                  <TouchableOpacity
+                    style={styles.retryButtonSecondary}
+                    onPress={loadDashboardData}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons name="refresh" size={16} color="#0B5CAD" />
+                    <Text style={styles.retryButtonSecondaryText}>{t('Refresh')}</Text>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              ) : (
+                /* Dynamic Balance Cards Grid */
+                <View style={styles.balancesGrid}>
+                  {chunkBalances(balances).map((row, rowIndex) => (
+                    <View key={`balance-row-${rowIndex}`} style={styles.balancesRow}>
+                      {row.map((item, colIndex) => {
+                        const itemIndex = rowIndex * 2 + colIndex;
+                        const theme = getCardTheme(itemIndex, item.balType);
+                        return (
+                          <View
+                            key={`balance-card-${rowIndex}-${colIndex}`}
+                            style={[
+                              styles.balanceCard,
+                              { borderLeftColor: theme.borderColor },
+                            ]}
+                          >
+                            {/* Card Top: Sleek Icon Badge */}
+                            <View style={styles.balanceCardTop}>
+                              <View
+                                style={[
+                                  styles.balanceIconBg,
+                                  { backgroundColor: theme.iconBg },
+                                ]}
+                              >
+                                <MaterialIcons
+                                  name={theme.icon}
+                                  size={22}
+                                  color={theme.iconColor}
+                                />
+                              </View>
+                            </View>
+
+                            {/* Card Middle: balType Heading */}
+                            <View style={styles.balanceCardMiddle}>
+                              <Text
+                                style={styles.balanceHeading}
+                                numberOfLines={3}
+                                ellipsizeMode="tail"
+                              >
+                                {t(item.balType)}
+                              </Text>
+                            </View>
+
+                            {/* Card Bottom: balValue */}
+                            <View style={styles.balanceCardBottom}>
+                              <Text
+                                style={[styles.balanceValue, { color: theme.valueColor }]}
+                                numberOfLines={1}
+                                adjustsFontSizeToFit
+                                minimumFontScale={0.8}
+                              >
+                                ₹ {formatBalanceValue(item.balValue)}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+
+                      {/* Transparent placeholder to align odd item in the last row */}
+                      {row.length === 1 && (
+                        <View
+                          style={[styles.balanceCard, styles.balanceCardPlaceholder]}
+                          pointerEvents="none"
+                        />
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -414,68 +583,174 @@ const styles = StyleSheet.create({
   warningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EEF6FC',
-    borderColor: '#D0E2F5',
+    justifyContent: 'space-between',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
     borderWidth: 1,
     borderRadius: 8,
     padding: 12,
-    gap: 8,
     marginBottom: 16,
+    gap: 8,
+  },
+  warningBannerIconText: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 8,
   },
   warningBannerText: {
-    color: '#0B5CAD',
+    color: '#991B1B',
     fontSize: 12,
     fontWeight: '600',
     flex: 1,
     lineHeight: 16,
   },
-  statsRow: {
+  bannerRetryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D8E2EC',
+    borderWidth: 1,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    gap: 4,
+  },
+  bannerRetryText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#0B5CAD',
+  },
+  balancesGrid: {
+    width: '100%',
+    marginBottom: 8,
+  },
+  balancesRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 14,
+    alignItems: 'stretch',
+    width: '100%',
   },
-  statsCard: {
+  balanceCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderColor: '#D8E2EC',
     borderWidth: 1,
+    borderLeftWidth: 4,
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
+    minHeight: 142,
+    justifyContent: 'space-between',
     elevation: 2,
     shadowColor: '#12263F',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
   },
-  incomeCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#10B981',
+  balanceCardPlaceholder: {
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
+    borderWidth: 0,
+    borderLeftWidth: 0,
+    elevation: 0,
+    shadowOpacity: 0,
   },
-  expenseCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: '#EF4444',
+  balanceCardTop: {
+    marginBottom: 8,
   },
-  statsIconBg: {
-    width: 44,
-    height: 44,
+  balanceIconBg: {
+    width: 38,
+    height: 38,
     borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  balanceCardMiddle: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  balanceHeading: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+    lineHeight: 18,
+  },
+  balanceCardBottom: {
+    marginTop: 6,
+  },
+  balanceValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  loadingCard: {
+    borderLeftColor: '#CBD5E1',
+    alignItems: 'flex-start',
+  },
+  loadingHeadingPlaceholder: {
+    width: '80%',
+    height: 14,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
+    marginVertical: 10,
+  },
+  loadingValuePlaceholder: {
+    width: '60%',
+    height: 18,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
+  },
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D8E2EC',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+    elevation: 1,
+    shadowColor: '#12263F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+  },
+  emptyIconBg: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
-  statsLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#697788',
+  emptyCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1E293B',
     marginBottom: 6,
   },
-  statsValue: {
-    fontSize: 16,
-    fontWeight: '700',
+  emptyCardSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 16,
+    marginBottom: 14,
   },
-  statsLoader: {
-    marginTop: 2,
+  retryButtonSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF6FC',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 6,
+    gap: 6,
+  },
+  retryButtonSecondaryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0B5CAD',
   },
   servicesCard: {
     backgroundColor: '#FFFFFF',

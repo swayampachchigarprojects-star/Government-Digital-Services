@@ -1,8 +1,8 @@
 export const translations = {
   gu: {
     // App / General / Shared
-    "Government Digital Services": "સરકારી ડિજિટલ સેવાઓ",
-    "Administration Services": "વહીવટી સેવાઓ",
+    "Lekha": "લેખા",
+    "Accounting Services": "હિસાબી સેવાઓ",
     "Crafted by hands": "હાથ દ્વારા બનાવવામાં આવેલ",
     "Cancel": "રદ કરો",
     "Submit": "સબમિટ કરો",
@@ -14,7 +14,7 @@ export const translations = {
     "Language": "ભાષા",
 
     // LoginScreen
-    "Sign in to access your services securely.": "તમારી સેવાઓ સુરક્ષિત રીતે ઍક્સેસ કરવા માટે સાઇન ઇન કરો.",
+    "Sign in to access Accounting Services": "હિસાબી સેવાઓ ઍક્સેસ કરવા માટે સાઇન ઇન કરો.",
     "Email Address": "ઈમેલ એડ્રેસ",
     "Password": "પાસવર્ડ",
     "Enter your email address": "તમારું ઈમેલ એડ્રેસ દાખલ કરો",
@@ -216,9 +216,29 @@ export const translations = {
     "Total Income": "કુલ આવક",
     "Total Expense": "કુલ ખર્ચ",
     "View Services": "સેવાઓ જુઓ",
-    "Dashboard Overview": "ડેશબોર્ડ વિહંગાવલોકન"
+    "Dashboard Overview": "ડેશબોર્ડ વિહંગાવલોકન",
+    "Balances": "સિલક",
+    "Balance": "સિલક",
+    "Opening Balance": "શરૂઆતની સિલક",
+    "Closing Balance": "આખર સિલક",
+    "Cash in Hand": "રોકડ સિલક",
+    "Bank Balance": "બેંક સિલક",
+    "Net Balance": "ચોખ્ખી સિલક",
+    "Current Balance": "હાલની સિલક",
+    "Total Balance": "કુલ સિલક",
+    "Cash": "રોકડ",
+    "Bank": "બેંક",
+    "No balance records found": "કોઈ સિલક રેકોર્ડ મળ્યા નથી",
+    "Unable to load balance data. Please try again.": "સિલક ડેટા લોડ કરવામાં અસમર્થ. કૃપા કરીને ફરી પ્રયાસ કરો.",
+    "Retry": "ફરી પ્રયાસ કરો",
+    "Refresh": "રિફ્રેશ",
+    "Check network connection or try again": "નેટવર્ક કનેક્શન તપાસો અથવા ફરી પ્રયાસ કરો",
+    "No balance accounts currently associated with this entity": "આ એકમ સાથે હાલમાં કોઈ સિલક ખાતા સંકળાયેલા નથી",
+    "Reports": "અહેવાલો",
+    "Profile": "પ્રોફાઇલ"
   },
   en: {
     // English values are matched exactly with keys
   }
 } as const;
+

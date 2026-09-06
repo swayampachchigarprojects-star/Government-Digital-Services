@@ -107,9 +107,9 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           <View style={styles.container}>
             {/* Card Container */}
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>{t('Government Digital Services')}</Text>
+              <Text style={styles.sectionTitle}>{t('Lekha')}</Text>
               <Text style={styles.sectionSubtitle}>
-                {t('Sign in to access your services securely.')}
+                {t('Sign in to access Accounting Services')}
               </Text>
 
               {/* Google Sign-In Button */}
@@ -123,18 +123,8 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   style={styles.googleIcon}
                   resizeMode="contain"
                 />
-                <Text style={styles.googleBtnText}>{t('Continue with Google')}</Text>
+                <Text style={styles.googleBtnText}>{t('Google')}</Text>
               </TouchableOpacity>
-
-              {/* Footer Links */}
-              <View style={styles.footerContainer}>
-                <Text style={styles.footerText}>
-                  {t('Need assistance?')}{' '}
-                  <Text style={styles.footerLink} onPress={handleContactSupport}>
-                    {t('Contact Support')}
-                  </Text>
-                </Text>
-              </View>
             </View>
           </View>
         </ScrollView>
@@ -212,6 +202,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.08,
     shadowRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionTitle: {
     color: '#173B63',

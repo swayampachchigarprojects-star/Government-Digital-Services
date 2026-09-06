@@ -72,26 +72,25 @@ export function ReportScreen({ onBack, onNavigateToScreen }: ReportScreenProps) 
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Screen Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.6}>
-          <MaterialIcons name="arrow-back" size={24} color="#173B63" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{t('Report')}</Text>
-        </View>
-        <View style={styles.headerSpacer} />
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
-          {/* Section title */}
-          <Text style={styles.sectionTitle}>{t('Report')}</Text>
-          <Text style={styles.sectionSubtitle}>{t('Select a service module to perform operations')}</Text>
-
+          {/* Header Section */}
+          <View style={styles.header}>
+            <View style={styles.headerRow}>
+              <View style={styles.logoAndTitle}>
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>GS</Text>
+                </View>
+                <View style={styles.titleContainer}>
+                  <Text style={styles.headerTitle}>{t('Lekha')}</Text>
+                  <Text style={styles.headerSubtitle}>{t('Accounting Services')}</Text>
+                </View>
+              </View>
+            </View>
+          </View>
           {/* Cards List */}
           <View style={styles.cardsContainer}>
             {reportModules.map((report) => (
@@ -116,7 +115,7 @@ export function ReportScreen({ onBack, onNavigateToScreen }: ReportScreenProps) 
                     )}
                   </View>
                   <Text style={styles.cardDescription}>{report.description}</Text>
-                  
+
                   {!report.disabled && (
                     <View style={styles.cardFooter}>
                       <Text style={[styles.cardActionText, { color: report.color }]}>
@@ -141,37 +140,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F7FA',
   },
   header: {
+    marginBottom: 24,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  logoAndTitle: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#D8E2EC',
-    elevation: 2,
-    shadowColor: '#12263F',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F4F7FA',
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  headerTitleContainer: {
     flex: 1,
-    alignItems: 'center',
   },
   headerTitle: {
     color: '#173B63',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
   },
   scrollContent: {
@@ -183,6 +167,34 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     maxWidth: 420,
+  },
+  badge: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#0B5CAD',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#0B5CAD',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    marginRight: 12,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  titleContainer: {
+    flexDirection: 'column',
+    flex: 1,
+  },
+  headerSubtitle: {
+    color: '#667585',
+    fontSize: 12,
+    marginTop: 2,
   },
   sectionTitle: {
     color: '#173B63',
