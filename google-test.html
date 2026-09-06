@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GramLedger Security Test</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body { max-width: 900px; margin: 28px auto; padding: 0 16px; font: 16px system-ui, sans-serif; color: #222; }
+        label { display: block; margin-top: 12px; font-weight: 600; }
+        input, textarea, select, button { box-sizing: border-box; width: 100%; padding: 9px; margin-top: 5px; font: inherit; }
+        button { width: auto; margin: 8px 8px 0 0; cursor: pointer; }
+        textarea { min-height: 120px; font-family: monospace; }
+        .warning { padding: 12px; background: #fff3cd; color: #664d03; }
+        #status { margin: 14px 0; padding: 10px; white-space: pre-wrap; }
+        #result { min-height: 180px; padding: 12px; background: #f5f5f5; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .hidden { display: none; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    </style>
+</head>
+<body>
+<h1>GramLedger Security Test</h1>
+<p class="warning"><strong>Development only.</strong> Serve from <code>http://localhost:8080/google-test.html</code>. Do not deploy publicly.</p>
+
+<div class="row">
+    <div>
+        <label for="clientId">Google OAuth Web client ID</label>
+        <input id="clientId" placeholder="123...apps.googleusercontent.com" autocomplete="off">
+    </div>
+    <div>
+        <label for="backendUrl">Backend URL</label>
+        <input id="backendUrl" value="http://localhost:8080" autocomplete="url">
+    </div>
+</div>
+
+<label for="accountingEntityId">Signup accounting entity ID</label>
+<input id="accountingEntityId" value="c83b5222-7104-55bf-8b8c-2f17e4c31234">
+<small>The backend accepts this only when it matches its configured signup scope.</small>
+
+<p>
+    <button id="initializeButton" type="button">Initialize Google Sign-In</button>
+</p>
+<div id="googleButton"></div>
+<p id="status" role="status">Configure the client ID and initialize Google Sign-In.</p>
+
+<section id="authControls" class="hidden">
+    <button id="signupButton" type="button">Signup with Google</button>
+    <button id="loginButton" type="button">Login with Google</button>
+</section>
+
+<section id="apiControls" class="hidden">
+    <h2>Protected API testing</h2>
+    <label for="apiOperation">Operation</label>
+    <select id="apiOperation"></select>
+    <label for="apiBody">JSON body (POST only)</label>
+    <textarea id="apiBody"></textarea>
+    <button id="protectedButton" type="button">Call Protected API</button>
+    <button id="copyJwtButton" type="button">Copy GramLedger JWT for Swagger</button>
+</section>
+
+<h2>Backend response</h2>
+<pre id="result">No request made.</pre>
+
+<script>
+    "use strict";
+
+    let googleIdToken = null;
+    let gramLedgerToken = null;
+
+    const operations = [
+        ["GET transaction heads", "GET", "/transaction-heads?transactionType=INCOME&level=1", null],
+        ["GET accounting entity", "GET", "/accounting-entity/c83b5222-7104-55bf-8b8c-2f17e4c31234", null],
+        ["GET transactions", "GET", "/transactions?date=2026-01-01", null],
+        ["POST transactions", "POST", "/transactions", [
+            { transactionType: "INCOME", transactionHeadCode: "WATER_TAX", date: "2026-01-01", amount: 1, reference: "SECURITY-TEST", remark: "Local security test" }
+        ]],
+        ["POST report request", "POST", "/report-requests", { fromDate: "2026-01-01", toDate: "2026-01-31", transactionType: "INCOME" }],
+        ["POST payment type", "POST", "/payment-types", { paymentType: "SECURITY_TEST" }],
+        ["GET payment types", "GET", "/payment-types/c83b5222-7104-55bf-8b8c-2f17e4c31234", null],
+        ["GET balance", "GET", "/balance/c83b5222-7104-55bf-8b8c-2f17e4c31234", null]
+    ];
+
+    const byId = id => document.getElementById(id);
+
+    function setStatus(message, kind) {
+        const status = byId("status");
+        status.textContent = message;
+        status.style.background = kind === "error" ? "#ffebee" : kind === "success" ? "#e8f5e9" : "#e3f2fd";
+        status.style.color = kind === "error" ? "#b71c1c" : kind === "success" ? "#1b5e20" : "#0d47a1";
+    }
+
+    function backendUrl() {
+        return byId("backendUrl").value.trim().replace(/\/+$/, "");
+    }
+
+    function selectedOperation() {
+        return operations[Number(byId("apiOperation").value)];
+    }
+
+    function renderOperations() {
+        const select = byId("apiOperation");
+        operations.forEach((operation, index) => {
+            const option = document.createElement("option");
+            option.value = String(index);
+            option.textContent = operation[0];
+            select.appendChild(option);
+        });
+        updateBodyEditor();
+    }
+
+    function updateBodyEditor() {
+        const operation = selectedOperation();
+        byId("apiBody").value = operation[3] ? JSON.stringify(operation[3], null, 2) : "";
+        byId("apiBody").disabled = operation[1] !== "POST";
+    }
+
+    function handleGoogleCredential(response) {
+        googleIdToken = response && response.credential ? response.credential : null;
+        if (!googleIdToken) {
+            setStatus("Google did not return an ID token.", "error");
+            return;
+        }
+        byId("authControls").classList.remove("hidden");
+        setStatus("Google ID token received in memory. It will only be sent to an auth endpoint.", "success");
+    }
+
+    function initializeGoogle() {
+        const clientId = byId("clientId").value.trim();
+        if (!clientId) {
+            setStatus("Enter the Google OAuth Web client ID first.", "error");
+            return;
+        }
+        if (!window.google || !google.accounts || !google.accounts.id) {
+            setStatus("Google Identity Services has not loaded yet.", "error");
+            return;
+        }
+        google.accounts.id.initialize({ client_id: clientId, callback: handleGoogleCredential, auto_select: false });
+        byId("googleButton").replaceChildren();
+        google.accounts.id.renderButton(byId("googleButton"), { theme: "outline", size: "large" });
+        setStatus("Google Sign-In is ready.", "success");
+    }
+
+    async function authenticate(path, signup) {
+        if (!googleIdToken) {
+            setStatus("Sign in with Google first.", "error");
+            return;
+        }
+        const body = { idToken: googleIdToken };
+        if (signup) {
+            body.accountingEntityId = byId("accountingEntityId").value.trim();
+        }
+        await request(path, "POST", body);
+    }
+
+    async function request(path, method, body, bearer = false) {
+        try {
+            const headers = {};
+            if (body !== undefined) headers["Content-Type"] = "application/json";
+            if (bearer) headers.Authorization = "Bearer " + gramLedgerToken;
+            const response = await fetch(backendUrl() + path, {
+                method,
+                headers,
+                body: body === undefined ? undefined : JSON.stringify(body)
+            });
+            const responseBody = await response.json().catch(() => ({ error: "Non-JSON response" }));
+            byId("result").textContent = JSON.stringify(responseBody, null, 2);
+            return { response, responseBody };
+        } catch (error) {
+            byId("result").textContent = String(error);
+            setStatus("Request failed. Confirm the backend URL and CORS settings.", "error");
+            return null;
+        }
+    }
+
+    async function authenticateAndStore(path, signup) {
+        const result = await request(path, "POST", signup
+            ? { idToken: googleIdToken, accountingEntityId: byId("accountingEntityId").value.trim() }
+            : { idToken: googleIdToken });
+        if (!result) return;
+        if (!result.response.ok) {
+            setStatus("Authentication failed: HTTP " + result.response.status, "error");
+            return;
+        }
+        gramLedgerToken = result.responseBody.accessToken;
+        if (!gramLedgerToken) {
+            setStatus("No GramLedger accessToken returned.", "error");
+            return;
+        }
+        byId("apiControls").classList.remove("hidden");
+        setStatus("GramLedger JWT received in memory. Protected APIs can now be tested.", "success");
+    }
+
+    async function callProtectedApi() {
+        if (!gramLedgerToken) {
+            setStatus("Authenticate with Google first.", "error");
+            return;
+        }
+        const operation = selectedOperation();
+        let body;
+        if (operation[1] === "POST") {
+            try {
+                body = JSON.parse(byId("apiBody").value || "{}");
+            } catch {
+                setStatus("The request body is not valid JSON.", "error");
+                return;
+            }
+        }
+        const result = await request(operation[2], operation[1], body, true);
+        if (result) setStatus("Protected API returned HTTP " + result.response.status + ".", result.response.ok ? "success" : "error");
+    }
+
+    byId("initializeButton").addEventListener("click", initializeGoogle);
+    byId("signupButton").addEventListener("click", () => authenticateAndStore("/api/v1/auth/signup/google", true));
+    byId("loginButton").addEventListener("click", () => authenticateAndStore("/api/v1/auth/login/google", false));
+    byId("apiOperation").addEventListener("change", updateBodyEditor);
+    byId("protectedButton").addEventListener("click", callProtectedApi);
+    byId("copyJwtButton").addEventListener("click", async () => {
+        if (!gramLedgerToken) return;
+        await navigator.clipboard.writeText(gramLedgerToken);
+        setStatus("GramLedger JWT copied. Paste it into Swagger Authorize as a Bearer token.", "info");
+    });
+    renderOperations();
+</script>
+</body>
+</html>
