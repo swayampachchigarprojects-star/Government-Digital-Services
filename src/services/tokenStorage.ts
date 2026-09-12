@@ -4,6 +4,7 @@ import type { AuthenticatedUser } from './authService';
 
 const TOKEN_KEY = 'gramledger.accessToken';
 const USER_KEY = 'gramledger.user';
+const ENTITY_ID_KEY = 'gramledger.accountEntityId';
 
 export async function getStoredToken(): Promise<string | null> {
   if (Platform.OS === 'web') {
@@ -56,3 +57,27 @@ export async function clearStoredUser(): Promise<void> {
   }
   await SecureStore.deleteItemAsync(USER_KEY);
 }
+
+export async function getStoredEntityId(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return typeof localStorage === 'undefined' ? null : localStorage.getItem(ENTITY_ID_KEY);
+  }
+  return SecureStore.getItemAsync(ENTITY_ID_KEY);
+}
+
+export async function storeEntityId(entityId: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(ENTITY_ID_KEY, entityId);
+    return;
+  }
+  await SecureStore.setItemAsync(ENTITY_ID_KEY, entityId);
+}
+
+export async function clearStoredEntityId(): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(ENTITY_ID_KEY);
+    return;
+  }
+  await SecureStore.deleteItemAsync(ENTITY_ID_KEY);
+}
+

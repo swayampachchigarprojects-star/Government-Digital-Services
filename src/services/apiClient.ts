@@ -42,10 +42,15 @@ function getErrorMessage(status: number): string {
   }
 }
 
-export async function apiRequest<T>(
+export interface ApiResponse<T = unknown> {
+  status: number;
+  data: T;
+}
+
+export async function apiRequestWithResponse<T>(
   path: string,
   init: ApiRequestOptions = {},
-): Promise<T> {
+): Promise<ApiResponse<T>> {
   const { authenticated = false, ...requestInit } = init;
   const headers = new Headers(requestInit.headers);
   headers.set('Accept', 'application/json');
@@ -80,6 +85,17 @@ export async function apiRequest<T>(
     throw new ApiError(response.status, getErrorMessage(response.status), body);
   }
 
-  if (!bodyText) return undefined as T;
-  return body as T;
+  return {
+    status: response.status,
+    data: (!bodyText ? undefined : body) as T,
+  };
 }
+
+export async function apiRequest<T>(
+  path: string,
+  init: ApiRequestOptions = {},
+): Promise<T> {
+  const res = await apiRequestWithResponse<T>(path, init);
+  return res.data;
+}
+

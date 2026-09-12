@@ -19,23 +19,21 @@ import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/apiClient';
 import { authService } from '../services/authService';
 import { useGoogleAuth } from '../services/googleAuth';
+import { getAccountingEntity } from '../services/entityService';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
+  onNavigateToCreateEntity?: () => void;
 }
 
-export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
+export function LoginScreen({ onLoginSuccess, onNavigateToCreateEntity }: LoginScreenProps) {
   const { t } = useLanguage();
-  const { setSession } = useAuth();
+  const { setSession, setEntityId } = useAuth();
   const googleAuth = useGoogleAuth();
   const [accountingEntityId, setAccountingEntityId] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const handleGoogleAuth = async () => {
     if (isAuthenticating) return;
-    if (!accountingEntityId.trim()) {
-      Alert.alert(t('Validation Error'), t('Accounting entity ID is required'));
-      return;
-    }
     setIsAuthenticating(true);
     try {
       const googleResult = await googleAuth.signIn();
@@ -49,10 +47,25 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
       }
       const session = await authService.signupWithGoogle(
         googleResult.idToken,
-        accountingEntityId.trim(),
       );
       await setSession(session);
-      onLoginSuccess();
+
+      // Immediately after successful Login, call GET http://192.168.0.248:8080/accounting-entity
+      const entityResult = await getAccountingEntity();
+      if (entityResult.exists) {
+        if (entityResult.accountEntityId) {
+          await setEntityId(entityResult.accountEntityId);
+        }
+        // 200 -> navigate to Dashboard
+        onLoginSuccess();
+      } else {
+        // 404 -> show new Create Entity screen
+        if (onNavigateToCreateEntity) {
+          onNavigateToCreateEntity();
+        } else {
+          onLoginSuccess();
+        }
+      }
     } catch (error) {
       const message = error instanceof ApiError && error.status === 403
         ? t('Your account is not registered. Please contact your administrator.')
@@ -60,7 +73,9 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
           ? t('Unable to connect to the server. Please try again.')
           : error instanceof Error && error.message === 'The authentication response was invalid.'
             ? t('Unable to sign in with Google. Please try again.')
-            : t('Unable to sign in with Google. Please try again.');
+            : error instanceof Error
+              ? error.message
+              : t('Unable to sign in with Google. Please try again.');
       Alert.alert(t('Sign In'), message);
     } finally {
       setIsAuthenticating(false);
@@ -105,7 +120,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                 {isAuthenticating ? <ActivityIndicator color="#0B5CAD" /> : <Text style={styles.googleBtnText}>{t('Google')}</Text>}
               </TouchableOpacity>
 
-              <View style={styles.signupSection}>
+              {/* <View style={styles.signupSection}>
                 <Text style={styles.signupTitle}>{t('Accounting entity')}</Text>
                 <TextInput
                   style={styles.input}
@@ -117,7 +132,7 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
                   accessibilityLabel={t('Accounting entity ID')}
                   editable={!isAuthenticating}
                 />
-              </View>
+              </View> */}
 
               {/* Footer Links */}
               <View style={styles.footerContainer}>

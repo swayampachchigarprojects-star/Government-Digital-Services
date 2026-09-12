@@ -15,7 +15,8 @@ export interface TransactionFilters {
   toDate: string; // YYYY-MM-DD
 }
 
-import { apiRequest } from './apiClient';
+import { apiRequest, apiRequestWithResponse } from './apiClient';
+import { resolveEntityId } from './entityService';
 
 export async function fetchTransactions(filters: TransactionFilters): Promise<Transaction[]> {
   const { entryType, fromDate, toDate } = filters;
@@ -54,7 +55,10 @@ export async function fetchTransactionsByDate(date: string): Promise<ServicesTra
 
 export interface PaymentType {
   paymentTypeId: string;
-  paymentTypeValue: string;
+  paymentType: string;
+  name?: string;
+  balance?: number;
+  [key: string]: unknown;
 }
 
 export interface PaymentTypesResponse {
@@ -62,12 +66,40 @@ export interface PaymentTypesResponse {
 }
 
 export async function fetchPaymentTypes(
-  accountingEntityId = 'c83b5222-7104-55bf-8b8c-2f17e4c31234'
+  accountingEntityId?: string
 ): Promise<PaymentType[]> {
+  const resolvedId = await resolveEntityId(accountingEntityId);
+  if (!resolvedId) {
+    return [];
+  }
   const data = await apiRequest<PaymentTypesResponse>(
-    `/payment-types/${encodeURIComponent(accountingEntityId)}`
+    `/payment-types/${encodeURIComponent(resolvedId)}`
   );
   return data?.paymentTypes || [];
 }
+
+export interface CreateReportRequestPayload {
+  fromDate: string;
+  toDate: string;
+  transactionType?: string;
+}
+
+export async function createReportRequest(
+  payload: CreateReportRequestPayload
+): Promise<{ status: number; data: unknown }> {
+  const body: Record<string, unknown> = {
+    fromDate: payload.fromDate,
+    toDate: payload.toDate,
+  };
+  if (payload.transactionType) {
+    body.transactionType = payload.transactionType;
+  }
+
+  return apiRequestWithResponse<unknown>('/report-requests', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
 
 

@@ -242,18 +242,18 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
 
               {/* Transactions Section */}
               <View style={styles.transactionsSection}>
-                <View style={styles.transactionsHeaderRow}>
+                {/* <View style={styles.transactionsHeaderRow}>
                   <MaterialIcons name="receipt-long" size={22} color="#0B5CAD" />
                   <Text style={styles.transactionsLabel}>{t('Transactions')}</Text>
                 </View>
                 <Text style={styles.transactionsSubLabel}>
                   {t('View transactions recorded on a specific date')}
-                </Text>
+                </Text> */}
 
                 {/* Date Picker */}
                 <View style={styles.datePickerContainer}>
                   <CustomDatePicker
-                    label={t('Date')}
+                    // label={t('Date')}
                     value={selectedDate}
                     placeholder={t('Select Date')}
                     onSelect={(date) => {

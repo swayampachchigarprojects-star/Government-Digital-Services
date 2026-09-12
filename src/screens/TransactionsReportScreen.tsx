@@ -13,7 +13,13 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
-import { fetchTransactions, Transaction } from '../services/transactionService';
+import {
+  createReportRequest,
+  CreateReportRequestPayload,
+  fetchTransactions,
+  Transaction,
+} from '../services/transactionService';
+import { ApiError } from '../services/apiClient';
 
 interface TransactionsReportScreenProps {
   onBack: () => void;
@@ -54,11 +60,8 @@ export function TransactionsReportScreen({ onBack }: TransactionsReportScreenPro
     const todayStr = new Date().toISOString().split('T')[0];
     const todayDate = new Date(todayStr);
 
-    // 1. Entry Type
-    if (!entryType) {
-      setEntryTypeError(t('Entry Type is required'));
-      isValid = false;
-    } else {
+    // 1. Entry Type (only set error if entryType is actively used)
+    if (entryType) {
       setEntryTypeError('');
     }
 
@@ -113,22 +116,54 @@ export function TransactionsReportScreen({ onBack }: TransactionsReportScreenPro
       setApiError(null);
       setHasSearched(true);
 
-      const filters = {
-        entryType: entryType as 'INCOME' | 'EXPENSE',
+      const payload: CreateReportRequestPayload = {
         fromDate,
         toDate,
+        ...(entryType ? { transactionType: entryType } : {}),
       };
 
-      const results = await fetchTransactions(filters);
-      setTransactions(results);
+      const response = await createReportRequest(payload);
+
+      if (response.status === 201 || response.status === 200) {
+        Alert.alert(
+          t('Success'),
+          t('Report request submitted successfully.')
+        );
+        if (Array.isArray(response.data)) {
+          setTransactions(response.data as Transaction[]);
+        } else if (
+          response.data &&
+          typeof response.data === 'object' &&
+          Array.isArray((response.data as Record<string, unknown>).transactions)
+        ) {
+          setTransactions((response.data as Record<string, unknown>).transactions as Transaction[]);
+        } else {
+          setTransactions([]);
+        }
+      } else {
+        throw new Error(t('The request could not be completed.'));
+      }
     } catch (error) {
-      console.error('Transactions query error:', error);
+      console.error('Report request error:', error);
       setTransactions([]);
-      setApiError(t('Unable to fetch transactions. Please try again.'));
+      const errorMessage =
+        error instanceof ApiError && error.status === 0
+          ? t('Unable to connect to the server. Please try again.')
+          : error instanceof ApiError && error.status === 400
+            ? t('The request could not be completed.')
+            : error instanceof ApiError
+              ? t(error.message) || error.message
+              : error instanceof Error
+                ? error.message
+                : t('Unable to submit report request. Please try again.');
+
+      setApiError(errorMessage);
+      Alert.alert(t('Error'), errorMessage);
     } finally {
       setLoading(false);
     }
   };
+
 
   // Columns specification for results table
   const columns = [
@@ -143,28 +178,25 @@ export function TransactionsReportScreen({ onBack }: TransactionsReportScreenPro
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Screen Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.6}>
-          <MaterialIcons name="arrow-back" size={24} color="#173B63" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{t('Transactions Report')}</Text>
-        </View>
-        <View style={styles.headerSpacer} />
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
+          {/* Screen Header */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.6}>
+              <MaterialIcons name="arrow-back" size={24} color="#173B63" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{t('Transactions Report')}</Text>
+          </View>
+
           {/* Filters Card */}
-          <Text style={styles.sectionTitle}>{t('Select Filters')}</Text>
+          {/* <Text style={styles.sectionTitle}>{t('Select Filters')}</Text> */}
           <View style={styles.filtersCard}>
             {/* Entry Type Dropdown */}
-            <CustomDropdown
+            {/* <CustomDropdown
               label={t('Entry Type')}
               value={entryType ? t(entryType) : ''}
               placeholder={t('Select Entry Type')}
@@ -182,7 +214,7 @@ export function TransactionsReportScreen({ onBack }: TransactionsReportScreenPro
               setVisible={setEntryDropdownVisible}
               error={entryTypeError}
               modalTitle={t('Select Entry Type Modal Title')}
-            />
+            /> */}
 
             {/* Date Pickers Row */}
             <View style={styles.datePickerRow}>
@@ -190,7 +222,7 @@ export function TransactionsReportScreen({ onBack }: TransactionsReportScreenPro
                 <CustomDatePicker
                   label={t('From Date')}
                   value={fromDate}
-                  placeholder={t('Select From Date')}
+                  placeholder={t('From Date')}
                   onSelect={(date) => {
                     setFromDate(date);
                     setFromDateError('');
@@ -207,7 +239,7 @@ export function TransactionsReportScreen({ onBack }: TransactionsReportScreenPro
                 <CustomDatePicker
                   label={t('To Date')}
                   value={toDate}
-                  placeholder={t('Select To Date')}
+                  placeholder={t('To Date')}
                   onSelect={(date) => {
                     setToDate(date);
                     setToDateError('');
@@ -227,7 +259,7 @@ export function TransactionsReportScreen({ onBack }: TransactionsReportScreenPro
               onPress={handleSearchSubmit}
               activeOpacity={0.85}
             >
-              <Text style={styles.submitBtnText}>{t('Submit')}</Text>
+              <Text style={styles.submitBtnText}>{t('Get Report')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -283,7 +315,7 @@ export function TransactionsReportScreen({ onBack }: TransactionsReportScreenPro
                       {t('Data retrieval is pending backend API availability')}
                     </Text>
                   </View>
-                  
+
                   <ScrollView horizontal={true} showsHorizontalScrollIndicator={true}>
                     <View style={styles.table}>
                       {/* Table Header */}
@@ -536,8 +568,8 @@ function CustomDatePicker({
 
   const handleNextMonth = () => {
     if (maxDate) {
-      if (currentYear > maxDate.getFullYear() || 
-         (currentYear === maxDate.getFullYear() && currentMonth >= maxDate.getMonth())) {
+      if (currentYear > maxDate.getFullYear() ||
+        (currentYear === maxDate.getFullYear() && currentMonth >= maxDate.getMonth())) {
         return;
       }
     }
@@ -565,7 +597,7 @@ function CustomDatePicker({
     const cellDate = new Date(currentYear, currentMonth, d);
     cellDate.setHours(0, 0, 0, 0);
     const isFuture = maxDate && cellDate > todayDate;
-    
+
     const dateStr = `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
     const isSelected = value === dateStr;
 
@@ -704,16 +736,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#D8E2EC',
-    elevation: 2,
-    shadowColor: '#12263F',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
+    marginBottom: 20,
+    width: '100%',
+    gap: 12,
   },
   backButton: {
     width: 40,
@@ -721,18 +746,17 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F4F7FA',
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D8E2EC',
+    elevation: 2,
+    shadowColor: '#12263F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   headerTitle: {
     color: '#173B63',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
   },
   scrollContent: {

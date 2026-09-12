@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient';
+import { resolveEntityId } from './entityService';
 
 export interface BalanceItem {
   balType: string;
@@ -14,10 +15,12 @@ export interface DashboardSummary {
   totalExpense: number;
 }
 
-export const DEFAULT_ENTITY_ID = 'c83b5222-7104-55bf-8b8c-2f17e4c31234';
-
-export async function fetchBalances(entityId: string = DEFAULT_ENTITY_ID): Promise<BalanceResponse> {
-  const data = await apiRequest<unknown>(`/balance/${entityId}`);
+export async function fetchBalances(entityId?: string): Promise<BalanceResponse> {
+  const resolvedId = await resolveEntityId(entityId);
+  if (!resolvedId) {
+    return { balances: [] };
+  }
+  const data = await apiRequest<unknown>(`/balance/${encodeURIComponent(resolvedId)}`);
   if (isBalanceResponse(data)) return data;
   if (Array.isArray(data)) return { balances: data as BalanceItem[] };
   return { balances: [] };

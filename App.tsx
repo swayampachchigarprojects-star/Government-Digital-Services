@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { CreateEntity } from './src/screens/CreateEntity';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { ServicesScreen } from './src/screens/ServicesScreen';
 import { IncomeEntryScreen } from './src/screens/IncomeEntryScreen';
@@ -25,6 +26,7 @@ export default function App() {
 
 function AppContent() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
+  const [hasInitializedSession, setHasInitializedSession] = useState(false);
   const { isAuthenticated, isHydrating, logout } = useAuth();
 
   const handleLogout = async () => {
@@ -36,10 +38,11 @@ function AppContent() {
     if (isHydrating) return;
     if (!isAuthenticated && currentScreen !== 'login') {
       setCurrentScreen('login');
-    } else if (isAuthenticated && currentScreen === 'login') {
+    } else if (isAuthenticated && currentScreen === 'login' && !hasInitializedSession) {
+      setHasInitializedSession(true);
       setCurrentScreen('dashboard');
     }
-  }, [currentScreen, isAuthenticated, isHydrating]);
+  }, [currentScreen, isAuthenticated, isHydrating, hasInitializedSession]);
 
   if (isHydrating) {
     return (
@@ -52,7 +55,19 @@ function AppContent() {
   const renderScreen = () => {
     switch (currentScreen) {
       case 'login':
-        return <LoginScreen onLoginSuccess={() => setCurrentScreen('dashboard')} />;
+        return (
+          <LoginScreen
+            onLoginSuccess={() => setCurrentScreen('dashboard')}
+            onNavigateToCreateEntity={() => setCurrentScreen('create-entity')}
+          />
+        );
+      case 'create-entity':
+        return (
+          <CreateEntity
+            onCancel={handleLogout}
+            onCreateSuccess={() => setCurrentScreen('dashboard')}
+          />
+        );
       case 'dashboard':
         return (
           <DashboardScreen
@@ -103,7 +118,7 @@ function AppContent() {
         </View>
 
         {/* Persistent Bottom Navigation Bar across all authenticated screens */}
-        {currentScreen !== 'login' && (
+        {currentScreen !== 'login' && currentScreen !== 'create-entity' && (
           <BottomNavigationBar
             currentScreen={currentScreen}
             onNavigate={(screen) => setCurrentScreen(screen)}

@@ -337,23 +337,19 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
         </View>
       )}
 
-      {/* Screen Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.6}>
-          <MaterialIcons name="arrow-back" size={24} color="#173B63" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{t('Income Entry')}</Text>
-        </View>
-        <View style={styles.headerSpacer} />
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
+          {/* Screen Header */}
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.6}>
+              <MaterialIcons name="arrow-back" size={24} color="#173B63" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{t('Income Entry')}</Text>
+          </View>
 
           {/* Form */}
           <View style={styles.formCard}>
@@ -486,7 +482,10 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
               label={t('Payment Type')}
               value={
                 selectedPaymentType
-                  ? t(selectedPaymentType.paymentTypeValue) || selectedPaymentType.paymentTypeValue
+                  ? t(selectedPaymentType.paymentType || selectedPaymentType.name || '') ||
+                    selectedPaymentType.paymentType ||
+                    selectedPaymentType.name ||
+                    ''
                   : ''
               }
               placeholder={
@@ -494,10 +493,13 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                   ? t('Loading Payment Types...')
                   : t('Select Payment Type')
               }
-              options={paymentTypes.map((item) => ({
-                label: t(item.paymentTypeValue) || item.paymentTypeValue,
-                value: item.paymentTypeId,
-              }))}
+              options={paymentTypes.map((item) => {
+                const label = item.paymentType || item.name || '';
+                return {
+                  label: t(label) || label,
+                  value: item.paymentTypeId,
+                };
+              })}
               onSelect={(val) => {
                 setPaymentTypeId(val);
                 setPaymentTypeError('');
@@ -628,7 +630,10 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                 <Text style={styles.modalLabel}>{t('Payment Type')}</Text>
                 <Text style={styles.modalValue}>
                   {selectedPaymentType
-                    ? t(selectedPaymentType.paymentTypeValue) || selectedPaymentType.paymentTypeValue
+                    ? t(selectedPaymentType.paymentType || selectedPaymentType.name || '') ||
+                      selectedPaymentType.paymentType ||
+                      selectedPaymentType.name ||
+                      '-'
                     : '-'}
                 </Text>
               </View>
@@ -862,16 +867,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#D8E2EC',
-    elevation: 2,
-    shadowColor: '#12263F',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
+    marginBottom: 20,
+    width: '100%',
+    gap: 12,
   },
   backButton: {
     width: 40,
@@ -879,24 +877,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F4F7FA',
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D8E2EC',
+    elevation: 2,
+    shadowColor: '#12263F',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   headerTitle: {
     color: '#173B63',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-  },
-  headerSubtitle: {
-    color: '#667585',
-    fontSize: 11,
-    marginTop: 1,
   },
   scrollContent: {
     flexGrow: 1,

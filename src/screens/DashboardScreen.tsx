@@ -378,9 +378,9 @@ export function DashboardScreen({
                           >
                             {t(item.balType)}
                           </Text>
-                          <Text style={styles.balanceSubtitle}>
+                          {/* <Text style={styles.balanceSubtitle}>
                             {t('Balance')}
-                          </Text>
+                          </Text> */}
                         </View>
 
                         {/* Right: Balance Value */}

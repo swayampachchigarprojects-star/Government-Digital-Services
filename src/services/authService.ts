@@ -14,9 +14,12 @@ export interface AuthenticationResponse {
   expiresInSeconds: number | null;
   userId: string | null;
   email: string | null;
-  name: string | null;
+  name?: string | null;
+  firstName: string | null;
+  lastName: string | null;
   language: string | null;
   accountingEntityId: string | null;
+  accountEntityId?: string | null;
   accountingEntityName: string | null;
   accountingEntityCode: string | null;
   district: string | null;
@@ -31,6 +34,11 @@ function parseAuthenticationResponse(value: unknown): AuthenticationResponse | n
   if (typeof value !== 'object' || value === null) return null;
   const response = value as Record<string, unknown>;
   if (typeof response.accessToken !== 'string' || response.accessToken.length === 0) return null;
+  const rawEntityId = typeof response.accountEntityId === 'string'
+    ? response.accountEntityId
+    : typeof response.accountingEntityId === 'string'
+      ? response.accountingEntityId
+      : null;
   return {
     accessToken: response.accessToken,
     tokenType: typeof response.tokenType === 'string' ? response.tokenType : null,
@@ -38,8 +46,11 @@ function parseAuthenticationResponse(value: unknown): AuthenticationResponse | n
     userId: typeof response.userId === 'string' ? response.userId : null,
     email: typeof response.email === 'string' ? response.email : null,
     name: typeof response.name === 'string' ? response.name : null,
+    firstName: typeof response.firstName === 'string' ? response.firstName : null,
+    lastName: typeof response.lastName === 'string' ? response.lastName : null,
     language: typeof response.language === 'string' ? response.language : null,
-    accountingEntityId: typeof response.accountingEntityId === 'string' ? response.accountingEntityId : null,
+    accountingEntityId: rawEntityId,
+    accountEntityId: rawEntityId,
     accountingEntityName: typeof response.accountingEntityName === 'string' ? response.accountingEntityName : null,
     accountingEntityCode: typeof response.accountingEntityCode === 'string' ? response.accountingEntityCode : null,
     district: typeof response.district === 'string' ? response.district : null,
@@ -67,8 +78,8 @@ export const authService = {
   loginWithGoogle(idToken: string): Promise<AuthenticationResponse> {
     return exchange('/auth/login/google', { idToken });
   },
-  signupWithGoogle(idToken: string, accountingEntityId: string): Promise<AuthenticationResponse> {
-    return exchange('/auth/signup/google', { idToken, accountingEntityId });
+  signupWithGoogle(idToken: string): Promise<AuthenticationResponse> {
+    return exchange('/auth/signup/google', { idToken });
   },
   async logout(): Promise<void> {
     await apiRequest('/auth/logout', {

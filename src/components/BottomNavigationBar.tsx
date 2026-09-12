@@ -11,6 +11,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 export type Screen =
   | 'login'
+  | 'create-entity'
   | 'dashboard'
   | 'services'
   | 'income'

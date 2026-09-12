@@ -23,40 +23,40 @@ export function ReportScreen({ onBack, onNavigateToScreen }: ReportScreenProps) 
   const reportModules = [
     {
       id: 'transactions',
-      title: t('Transactions'),
-      description: t('Generate financial reports, view visual analytics, and export summaries.'),
+      title: t('Annual Reports'),
+      description: t('Summary of Income and Expenditure'),
       icon: 'list-alt' as const,
       color: '#0B5CAD', // royal blue
       bgTint: '#EEF6FC',
       disabled: false,
     },
-    {
-      id: 'income-summary',
-      title: t('Income Summary'),
-      description: t('Review comprehensive logs of incoming revenue categorized by primary transaction heads.'),
-      icon: 'trending-up' as const,
-      color: '#9AA5B1', // muted gray
-      bgTint: '#F4F7FA',
-      disabled: true,
-    },
-    {
-      id: 'expense-summary',
-      title: t('Expense Summary'),
-      description: t('Track department spending and operational expenditures over custom periods.'),
-      icon: 'trending-down' as const,
-      color: '#9AA5B1', // muted gray
-      bgTint: '#F4F7FA',
-      disabled: true,
-    },
-    {
-      id: 'financial-overview',
-      title: t('Financial Overview'),
-      description: t('Analyze the consolidated balance sheets, audits, and net revenues of the administration.'),
-      icon: 'pie-chart' as const,
-      color: '#9AA5B1', // muted gray
-      bgTint: '#F4F7FA',
-      disabled: true,
-    },
+    // {
+    //   id: 'income-summary',
+    //   title: t('Income Summary'),
+    //   description: t('Review comprehensive logs of incoming revenue categorized by primary transaction heads.'),
+    //   icon: 'trending-up' as const,
+    //   color: '#9AA5B1', // muted gray
+    //   bgTint: '#F4F7FA',
+    //   disabled: true,
+    // },
+    // {
+    //   id: 'expense-summary',
+    //   title: t('Expense Summary'),
+    //   description: t('Track department spending and operational expenditures over custom periods.'),
+    //   icon: 'trending-down' as const,
+    //   color: '#9AA5B1', // muted gray
+    //   bgTint: '#F4F7FA',
+    //   disabled: true,
+    // },
+    // {
+    //   id: 'financial-overview',
+    //   title: t('Financial Overview'),
+    //   description: t('Analyze the consolidated balance sheets, audits, and net revenues of the administration.'),
+    //   icon: 'pie-chart' as const,
+    //   color: '#9AA5B1', // muted gray
+    //   bgTint: '#F4F7FA',
+    //   disabled: true,
+    // },
   ];
 
   const handleCardPress = (id: string, title: string, disabled: boolean) => {
@@ -116,14 +116,14 @@ export function ReportScreen({ onBack, onNavigateToScreen }: ReportScreenProps) 
                   </View>
                   <Text style={styles.cardDescription}>{report.description}</Text>
 
-                  {!report.disabled && (
+                  {/* {!report.disabled && (
                     <View style={styles.cardFooter}>
                       <Text style={[styles.cardActionText, { color: report.color }]}>
                         {t('Open Service')}
                       </Text>
                       <MaterialIcons name="chevron-right" size={18} color={report.color} />
                     </View>
-                  )}
+                  )} */}
                 </View>
               </TouchableOpacity>
             ))}
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     borderColor: '#D8E2EC',
     borderWidth: 1,
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 14,
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: '#173B63',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   cardTitleDisabled: {
