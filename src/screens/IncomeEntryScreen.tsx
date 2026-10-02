@@ -5,12 +5,13 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
+  KeyboardAvoidingView,
   ScrollView,
   Platform,
   Alert,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { apiRequest } from '../services/apiClient';
@@ -328,28 +329,34 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
   const selectedPaymentType = paymentTypes.find((pt) => pt.paymentTypeId === paymentTypeId);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {/* Toast Alert */}
-      {toastVisible && (
-        <View style={styles.toastContainer}>
-          <MaterialIcons name="check-circle" size={22} color="#FFFFFF" />
-          <Text style={styles.toastText}>{toastMessage}</Text>
-        </View>
-      )}
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.container}>
-          {/* Screen Header */}
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.6}>
-              <MaterialIcons name="arrow-back" size={24} color="#173B63" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>{t('Income Entry')}</Text>
+        {/* Toast Alert */}
+        {toastVisible && (
+          <View style={styles.toastContainer}>
+            <MaterialIcons name="check-circle" size={22} color="#FFFFFF" />
+            <Text style={styles.toastText}>{toastMessage}</Text>
           </View>
+        )}
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.container}>
+            {/* Screen Header */}
+            <View style={styles.header}>
+              <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.6}>
+                <MaterialIcons name="arrow-back" size={24} color="#173B63" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                {t('Income Entry')}
+              </Text>
+            </View>
 
           {/* Form */}
           <View style={styles.formCard}>
@@ -570,6 +577,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
           </View>
         </View>
       </ScrollView>
+    </KeyboardAvoidingView>
 
       {/* Confirmation Modal */}
       <Modal
@@ -583,73 +591,75 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
             <Text style={styles.modalTitle}>{t('Confirm Income Entry')}</Text>
             <Text style={styles.modalSubtitle}>{t('Please verify the transaction details below before committing to database.')}</Text>
 
-            <View style={styles.modalDetails}>
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>{t('Income Type')}</Text>
-                <Text style={styles.modalValue}>{t(incomeType)}</Text>
-              </View>
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>{t('Income Subtype')}</Text>
-                <Text style={styles.modalValue}>
-                  {incomeSubtypeNames.map((name) => t(name)).join(', ')}
-                </Text>
-              </View>
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>{t('Amount')}</Text>
-                {incomeSubtypeCodes.length === 1 ? (
-                  <Text style={styles.modalAmount}>
-                    ₹ {(parseFloat(subtypeAmounts[incomeSubtypeCodes[0]] || '0') || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+              <View style={styles.modalDetails}>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>{t('Income Type')}</Text>
+                  <Text style={styles.modalValue}>{t(incomeType)}</Text>
+                </View>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>{t('Income Subtype')}</Text>
+                  <Text style={styles.modalValue}>
+                    {incomeSubtypeNames.map((name) => t(name)).join(', ')}
                   </Text>
-                ) : (
-                  <View style={styles.modalSubtypeAmountList}>
-                    {incomeSubtypeCodes.map((code) => {
-                      const subtype = incomeSubTypes.find((item) => item.txnCode === code);
-                      const displayName = subtype ? t(subtype.txnName) : code;
-                      const amtVal = parseFloat(subtypeAmounts[code] || '0') || 0;
-                      return (
-                        <View key={code} style={styles.modalSubtypeRow}>
-                          <Text style={styles.modalSubtypeLabel}>{displayName}</Text>
-                          <Text style={styles.modalSubtypeAmount}>
-                            ₹ {amtVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                    <View style={[styles.modalSubtypeRow, styles.modalTotalRow]}>
-                      <Text style={[styles.modalSubtypeLabel, styles.modalTotalLabel]}>
-                        {t('Total Balance')}
-                      </Text>
-                      <Text style={[styles.modalAmount, styles.modalTotalAmount]}>
-                        ₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </Text>
+                </View>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>{t('Amount')}</Text>
+                  {incomeSubtypeCodes.length === 1 ? (
+                    <Text style={styles.modalAmount}>
+                      ₹ {(parseFloat(subtypeAmounts[incomeSubtypeCodes[0]] || '0') || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </Text>
+                  ) : (
+                    <View style={styles.modalSubtypeAmountList}>
+                      {incomeSubtypeCodes.map((code) => {
+                        const subtype = incomeSubTypes.find((item) => item.txnCode === code);
+                        const displayName = subtype ? t(subtype.txnName) : code;
+                        const amtVal = parseFloat(subtypeAmounts[code] || '0') || 0;
+                        return (
+                          <View key={code} style={styles.modalSubtypeRow}>
+                            <Text style={styles.modalSubtypeLabel}>{displayName}</Text>
+                            <Text style={styles.modalSubtypeAmount}>
+                              ₹ {amtVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                      <View style={[styles.modalSubtypeRow, styles.modalTotalRow]}>
+                        <Text style={[styles.modalSubtypeLabel, styles.modalTotalLabel]}>
+                          {t('Total Balance')}
+                        </Text>
+                        <Text style={[styles.modalAmount, styles.modalTotalAmount]}>
+                          ₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                      </View>
                     </View>
+                  )}
+                </View>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>{t('Payment Type')}</Text>
+                  <Text style={styles.modalValue}>
+                    {selectedPaymentType
+                      ? t(selectedPaymentType.paymentType || selectedPaymentType.name || '') ||
+                        selectedPaymentType.paymentType ||
+                        selectedPaymentType.name ||
+                        '-'
+                      : '-'}
+                  </Text>
+                </View>
+                {!!remarks && (
+                  <View style={styles.modalRow}>
+                    <Text style={styles.modalLabel}>{t('Remarks')}</Text>
+                    <Text style={styles.modalValue}>{remarks}</Text>
+                  </View>
+                )}
+                {!!refId && (
+                  <View style={styles.modalRow}>
+                    <Text style={styles.modalLabel}>{t('Reference ID')}</Text>
+                    <Text style={styles.modalValue}>{refId}</Text>
                   </View>
                 )}
               </View>
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>{t('Payment Type')}</Text>
-                <Text style={styles.modalValue}>
-                  {selectedPaymentType
-                    ? t(selectedPaymentType.paymentType || selectedPaymentType.name || '') ||
-                      selectedPaymentType.paymentType ||
-                      selectedPaymentType.name ||
-                      '-'
-                    : '-'}
-                </Text>
-              </View>
-              {!!remarks && (
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>{t('Remarks')}</Text>
-                  <Text style={styles.modalValue}>{remarks}</Text>
-                </View>
-              )}
-              {!!refId && (
-                <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>{t('Reference ID')}</Text>
-                  <Text style={styles.modalValue}>{refId}</Text>
-                </View>
-              )}
-            </View>
+            </ScrollView>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -889,6 +899,7 @@ const styles = StyleSheet.create({
     color: '#173B63',
     fontSize: 20,
     fontWeight: '700',
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -1039,7 +1050,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: '50%',
+    maxHeight: '75%',
     paddingBottom: 24,
   },
   dropdownModalHeader: {
@@ -1072,6 +1083,7 @@ const styles = StyleSheet.create({
   dropdownOptionText: {
     fontSize: 14,
     color: '#173B63',
+    flex: 1,
   },
   dropdownOptionTextSelected: {
     color: '#0B5CAD',

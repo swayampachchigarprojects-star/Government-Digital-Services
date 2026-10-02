@@ -4,11 +4,11 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Platform,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 
@@ -71,7 +71,7 @@ export function ReportScreen({ onBack, onNavigateToScreen }: ReportScreenProps) 
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 460,
   },
   badge: {
     width: 42,
@@ -248,6 +248,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
     marginBottom: 4,
+    marginTop: 8
   },
   cardTitle: {
     color: '#173B63',

@@ -1,23 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
-  Platform,
   Alert,
   Modal,
   ActivityIndicator,
+  Linking,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import {
   createReportRequest,
   CreateReportRequestPayload,
-  fetchTransactions,
-  Transaction,
+  fetchReports,
+  downloadReport,
+  ReportItem,
 } from '../services/transactionService';
 import { ApiError } from '../services/apiClient';
 
@@ -25,85 +27,149 @@ interface TransactionsReportScreenProps {
   onBack: () => void;
 }
 
+/**
+ * Returns dynamic Indian Financial Years (April to March)
+ * Current FY + previous (count - 1) FYs (default 6 FYs total).
+ * Format: `YYYY-YY` (e.g., `2026-27`).
+ */
+export function getFinancialYearOptions(count = 5): string[] {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0 is Jan, 3 is Apr
+
+  // In India, the FY starts on April 1 and ends on March 31.
+  // If month is April (3) or later, the FY starts in currentYear.
+  // If month is January to March (0 to 2), the FY starts in currentYear - 1.
+  const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+
+  const options: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const fyStart = startYear - i;
+    const fyEnd = fyStart + 1;
+    const fyEndShort = String(fyEnd).slice(-2);
+    options.push(`${fyStart}-${fyEndShort}`);
+  }
+  return options;
+}
+
+/**
+ * Derives the Financial Year from `fromDate` and `toDate`
+ * (e.g., `2025-04-01` to `2026-03-31` -> `2025-26`).
+ */
+export function deriveFinancialYear(fromDate?: string, toDate?: string): string {
+  if (!fromDate && !toDate) return '-';
+
+  const extractYear = (dateStr?: string): number | null => {
+    if (!dateStr) return null;
+    const match = dateStr.match(/^(\d{4})/);
+    return match ? parseInt(match[1], 10) : null;
+  };
+
+  const fromYear = extractYear(fromDate);
+  const toYear = extractYear(toDate);
+
+  if (fromYear !== null && toYear !== null) {
+    if (toYear > fromYear) {
+      return `${fromYear}-${String(toYear).slice(-2)}`;
+    } else {
+      const monthMatch = fromDate?.match(/^\d{4}-(\d{2})/);
+      const month = monthMatch ? parseInt(monthMatch[1], 10) : null;
+      if (month && month < 4) {
+        return `${fromYear - 1}-${String(fromYear).slice(-2)}`;
+      }
+      return `${fromYear}-${String(fromYear + 1).slice(-2)}`;
+    }
+  }
+
+  if (fromYear !== null) {
+    const monthMatch = fromDate?.match(/^\d{4}-(\d{2})/);
+    const month = monthMatch ? parseInt(monthMatch[1], 10) : null;
+    if (month && month < 4) {
+      return `${fromYear - 1}-${String(fromYear).slice(-2)}`;
+    }
+    return `${fromYear}-${String(fromYear + 1).slice(-2)}`;
+  }
+
+  return '-';
+}
+
 export function TransactionsReportScreen({ onBack }: TransactionsReportScreenProps) {
   const { t } = useLanguage();
 
-  // Filter States
-  const [entryType, setEntryType] = useState<'INCOME' | 'EXPENSE' | ''>('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-
-  // Dropdown / Datepicker Visibility
-  const [entryDropdownVisible, setEntryDropdownVisible] = useState(false);
-  const [fromDatePickerVisible, setFromDatePickerVisible] = useState(false);
-  const [toDatePickerVisible, setToDatePickerVisible] = useState(false);
-
-  // Validation Error States
-  const [entryTypeError, setEntryTypeError] = useState('');
-  const [fromDateError, setFromDateError] = useState('');
-  const [toDateError, setToDateError] = useState('');
+  // Financial Year Filter State
+  const financialYearOptions = useMemo(() => getFinancialYearOptions(5), []);
+  const [financialYear, setFinancialYear] = useState('');
+  const [fyDropdownVisible, setFyDropdownVisible] = useState(false);
+  const [financialYearError, setFinancialYearError] = useState('');
 
   // API Call States
   const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [fetchingReports, setFetchingReports] = useState(true);
+  const [downloadingReportId, setDownloadingReportId] = useState<string | null>(null);
+  const [reports, setReports] = useState<ReportItem[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  // Reset results if filters are modified
+  // Toast State
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerToast = (message: string) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    setToastMessage(message);
+    setToastVisible(true);
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastVisible(false);
+    }, 4000);
+  };
+
   useEffect(() => {
-    // Keep results visible, but we can clear error if they change filters
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Fetch reports helper (Called on landing and after successful POST)
+  const loadReports = async () => {
+    try {
+      setFetchingReports(true);
+      const response = await fetchReports();
+      if (response && Array.isArray(response.reports)) {
+        setReports(response.reports);
+      } else if (Array.isArray(response)) {
+        setReports(response as unknown as ReportItem[]);
+      } else {
+        setReports([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch reports:', err);
+    } finally {
+      setFetchingReports(false);
+    }
+  };
+
+  // Initial load of reports when user lands on screen
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  // Clear errors when filter changes
+  useEffect(() => {
     if (apiError) setApiError(null);
-  }, [entryType, fromDate, toDate]);
+    if (financialYearError) setFinancialYearError('');
+  }, [financialYear]);
 
-  const validateFilters = () => {
-    let isValid = true;
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todayDate = new Date(todayStr);
-
-    // 1. Entry Type (only set error if entryType is actively used)
-    if (entryType) {
-      setEntryTypeError('');
+  const validateFilters = (): boolean => {
+    if (!financialYear) {
+      setFinancialYearError(t('Financial Year is required'));
+      return false;
     }
-
-    // 2. From Date
-    if (!fromDate) {
-      setFromDateError(t('From Date is required'));
-      isValid = false;
-    } else {
-      const fromDateObj = new Date(fromDate);
-      if (fromDateObj > todayDate) {
-        setFromDateError(t('From Date cannot be in the future'));
-        isValid = false;
-      } else {
-        setFromDateError('');
-      }
-    }
-
-    // 3. To Date
-    if (!toDate) {
-      setToDateError(t('To Date is required'));
-      isValid = false;
-    } else {
-      const toDateObj = new Date(toDate);
-      if (toDateObj > todayDate) {
-        setToDateError(t('To Date cannot be in the future'));
-        isValid = false;
-      } else {
-        setToDateError('');
-      }
-    }
-
-    // 4. Date Range Comparison
-    if (fromDate && toDate) {
-      const fromDateObj = new Date(fromDate);
-      const toDateObj = new Date(toDate);
-      if (fromDateObj > toDateObj) {
-        setFromDateError(t('From Date must be less than or equal to To Date'));
-        isValid = false;
-      }
-    }
-
-    return isValid;
+    setFinancialYearError('');
+    return true;
   };
 
   const handleSearchSubmit = async () => {
@@ -114,38 +180,31 @@ export function TransactionsReportScreen({ onBack }: TransactionsReportScreenPro
     try {
       setLoading(true);
       setApiError(null);
-      setHasSearched(true);
+
+      // Convert selected FY (e.g., "2026-27") to Indian FY date range ("2026-04-01" to "2027-03-31")
+      const startYear = parseInt(financialYear.split('-')[0].trim(), 10);
+      const endYear = startYear + 1;
+      const fromDate = `${startYear}-04-01`;
+      const toDate = `${endYear}-03-31`;
 
       const payload: CreateReportRequestPayload = {
         fromDate,
         toDate,
-        ...(entryType ? { transactionType: entryType } : {}),
       };
 
       const response = await createReportRequest(payload);
 
       if (response.status === 201 || response.status === 200) {
-        Alert.alert(
-          t('Success'),
-          t('Report request submitted successfully.')
-        );
-        if (Array.isArray(response.data)) {
-          setTransactions(response.data as Transaction[]);
-        } else if (
-          response.data &&
-          typeof response.data === 'object' &&
-          Array.isArray((response.data as Record<string, unknown>).transactions)
-        ) {
-          setTransactions((response.data as Record<string, unknown>).transactions as Transaction[]);
-        } else {
-          setTransactions([]);
-        }
+        // Show success toast
+        triggerToast(t('Reports request has been submitted'));
+
+        // Refresh reports list
+        await loadReports();
       } else {
         throw new Error(t('The request could not be completed.'));
       }
     } catch (error) {
       console.error('Report request error:', error);
-      setTransactions([]);
       const errorMessage =
         error instanceof ApiError && error.status === 0
           ? t('Unable to connect to the server. Please try again.')
@@ -164,20 +223,39 @@ export function TransactionsReportScreen({ onBack }: TransactionsReportScreenPro
     }
   };
 
-
-  // Columns specification for results table
-  const columns = [
-    { key: 'id', title: t('Transaction ID'), width: 130 },
-    { key: 'transactionType', title: t('Transaction Type'), width: 100 },
-    { key: 'transactionHeadCode', title: t('Transaction Head'), width: 150 },
-    { key: 'date', title: t('Date'), width: 110 },
-    { key: 'amount', title: t('Amount'), width: 100 },
-    { key: 'reference', title: t('Reference'), width: 130 },
-    { key: 'remark', title: t('Remark'), width: 180 },
-  ];
+  const handleDownload = async (report: ReportItem) => {
+    try {
+      setDownloadingReportId(report.reportId);
+      await downloadReport(report.reportId);
+      triggerToast(t('Report downloaded successfully'));
+    } catch (error) {
+      console.error('Download report error:', error);
+      const errorMessage =
+        error instanceof ApiError && error.status === 0
+          ? t('Unable to connect to the server. Please try again.')
+          : error instanceof ApiError && error.status === 404
+            ? t('The requested report was not found.')
+            : error instanceof ApiError
+              ? t(error.message) || error.message
+              : error instanceof Error
+                ? error.message
+                : t('Unable to download report. Please try again.');
+      Alert.alert(t('Error'), errorMessage);
+    } finally {
+      setDownloadingReportId(null);
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      {/* Toast Alert */}
+      {toastVisible && (
+        <View style={styles.toastContainer}>
+          <MaterialIcons name="check-circle" size={22} color="#FFFFFF" />
+          <Text style={styles.toastText}>{toastMessage}</Text>
+        </View>
+      )}
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -189,210 +267,158 @@ export function TransactionsReportScreen({ onBack }: TransactionsReportScreenPro
             <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.6}>
               <MaterialIcons name="arrow-back" size={24} color="#173B63" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{t('Transactions Report')}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+              {t('Transactions Report')}
+            </Text>
           </View>
 
           {/* Filters Card */}
-          {/* <Text style={styles.sectionTitle}>{t('Select Filters')}</Text> */}
           <View style={styles.filtersCard}>
-            {/* Entry Type Dropdown */}
-            {/* <CustomDropdown
-              label={t('Entry Type')}
-              value={entryType ? t(entryType) : ''}
-              placeholder={t('Select Entry Type')}
-              options={['Income', 'Expense']} // keys mapping to translations
-              onSelect={(val) => {
-                // val is translated, map it back to internal value
-                if (val === t('Income') || val === 'Income') {
-                  setEntryType('INCOME');
-                } else if (val === t('Expense') || val === 'Expense') {
-                  setEntryType('EXPENSE');
-                }
-                setEntryTypeError('');
-              }}
-              visible={entryDropdownVisible}
-              setVisible={setEntryDropdownVisible}
-              error={entryTypeError}
-              modalTitle={t('Select Entry Type Modal Title')}
-            /> */}
-
-            {/* Date Pickers Row */}
-            <View style={styles.datePickerRow}>
-              <View style={{ flex: 1 }}>
-                <CustomDatePicker
-                  label={t('From Date')}
-                  value={fromDate}
-                  placeholder={t('From Date')}
-                  onSelect={(date) => {
-                    setFromDate(date);
-                    setFromDateError('');
-                  }}
-                  visible={fromDatePickerVisible}
-                  setVisible={setFromDatePickerVisible}
-                  error={fromDateError}
-                  modalTitle={t('Select From Date Modal Title')}
-                  maxDate={new Date()}
-                />
-              </View>
-              <View style={{ width: 12 }} />
-              <View style={{ flex: 1 }}>
-                <CustomDatePicker
-                  label={t('To Date')}
-                  value={toDate}
-                  placeholder={t('To Date')}
-                  onSelect={(date) => {
-                    setToDate(date);
-                    setToDateError('');
-                  }}
-                  visible={toDatePickerVisible}
-                  setVisible={setToDatePickerVisible}
-                  error={toDateError}
-                  modalTitle={t('Select To Date Modal Title')}
-                  maxDate={new Date()}
-                />
-              </View>
+            {/* <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardHeaderTitle}>{t('Select Filters')}</Text>
             </View>
+            <View style={styles.cardDivider} /> */}
+
+            {/* Financial Year Dropdown */}
+            <CustomDropdown
+              label={t('Financial Year')}
+              value={financialYear}
+              placeholder={t('Select Financial Year')}
+              options={financialYearOptions}
+              onSelect={(val) => {
+                setFinancialYear(val);
+                setFinancialYearError('');
+              }}
+              visible={fyDropdownVisible}
+              setVisible={setFyDropdownVisible}
+              error={financialYearError}
+              disabled={loading}
+              modalTitle={t('Select Financial Year Modal Title')}
+            />
 
             {/* Submit Button */}
             <TouchableOpacity
-              style={styles.submitBtn}
+              style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
               onPress={handleSearchSubmit}
+              disabled={loading}
               activeOpacity={0.85}
             >
-              <Text style={styles.submitBtnText}>{t('Get Report')}</Text>
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitBtnText}>{t('Get Report')}</Text>
+              )}
             </TouchableOpacity>
           </View>
 
-          {/* Results Area */}
-          {hasSearched && (
+          {/* Loading Indicator when landing on screen */}
+          {fetchingReports && reports.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#0B5CAD" />
+              <Text style={styles.loadingText}>{t('Loading')}</Text>
+            </View>
+          ) : reports.length > 0 ? (
             <View style={styles.resultsContainer}>
-              <Text style={styles.sectionTitle}>{t('Search Results')}</Text>
+              <View style={styles.resultsCard}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardHeaderTitle}>{t('Reports')}</Text>
+                </View>
+                <View style={styles.cardDivider} />
 
-              {loading ? (
-                /* Loading State */
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#0B5CAD" />
-                  <Text style={styles.loadingText}>{t('Loading')}</Text>
-                </View>
-              ) : apiError ? (
-                /* API / Error State */
-                <View style={styles.errorStateCard}>
-                  {/* Warning banner */}
-                  <View style={styles.warningBanner}>
-                    <MaterialIcons name="info-outline" size={20} color="#0B5CAD" />
-                    <Text style={styles.warningBannerText}>
-                      {t('Data retrieval is pending backend API availability')}
-                    </Text>
-                  </View>
-                  <View style={styles.errorSubContainer}>
-                    <MaterialIcons name="error-outline" size={40} color="#EF4444" />
-                    <Text style={styles.errorTextHeading}>{t('Error')}</Text>
-                    <Text style={styles.errorTextDescription}>{apiError}</Text>
-                  </View>
-                </View>
-              ) : transactions.length === 0 ? (
-                /* Empty/No Results State */
-                <View style={styles.emptyStateCard}>
-                  {/* Warning banner showing pending state even for empty */}
-                  <View style={styles.warningBanner}>
-                    <MaterialIcons name="info-outline" size={20} color="#0B5CAD" />
-                    <Text style={styles.warningBannerText}>
-                      {t('Data retrieval is pending backend API availability')}
-                    </Text>
-                  </View>
-                  <View style={styles.emptySubContainer}>
-                    <MaterialIcons name="search-off" size={44} color="#BAC4D0" />
-                    <Text style={styles.emptyText}>{t('No transactions found')}</Text>
-                  </View>
-                </View>
-              ) : (
-                /* Results Table State */
-                <View style={styles.resultsCard}>
-                  {/* Warning banner */}
-                  <View style={[styles.warningBanner, { marginBottom: 16 }]}>
-                    <MaterialIcons name="info-outline" size={20} color="#0B5CAD" />
-                    <Text style={styles.warningBannerText}>
-                      {t('Data retrieval is pending backend API availability')}
-                    </Text>
+                <View style={styles.table}>
+                  {/* Table Header: 3 columns (F.Y., Status, Download) */}
+                  <View style={styles.tableHeaderRow}>
+                    <View style={[styles.tableHeaderCell, styles.colFy]}>
+                      <Text style={styles.tableHeaderCellText}>{t('F.Y.')}</Text>
+                    </View>
+                    <View style={[styles.tableHeaderCell, styles.colStatus]}>
+                      <Text style={[styles.tableHeaderCellText, styles.centerText]}>{t('Status')}</Text>
+                    </View>
+                    <View style={[styles.tableHeaderCell, styles.colDownload]}>
+                      <Text style={[styles.tableHeaderCellText, styles.centerText]}>{t('Download')}</Text>
+                    </View>
                   </View>
 
-                  <ScrollView horizontal={true} showsHorizontalScrollIndicator={true}>
-                    <View style={styles.table}>
-                      {/* Table Header */}
-                      <View style={styles.tableHeaderRow}>
-                        {columns.map((col) => (
-                          <View key={col.key} style={[styles.tableHeaderCell, { width: col.width }]}>
-                            <Text style={styles.tableHeaderCellText}>{col.title}</Text>
-                          </View>
-                        ))}
-                      </View>
-                      {/* Table Rows */}
-                      {transactions.map((txn, index) => (
-                        <View
-                          key={txn.id || index}
-                          style={[
-                            styles.tableRow,
-                            index % 2 === 1 && styles.tableRowAlternating,
-                            index === transactions.length - 1 && styles.tableRowLast,
-                          ]}
-                        >
-                          <View style={[styles.tableCell, { width: 130 }]}>
-                            <Text style={styles.tableCellText} numberOfLines={1}>
-                              {txn.id || '-'}
-                            </Text>
-                          </View>
-                          <View style={[styles.tableCell, { width: 100 }]}>
+                  {/* Table Rows */}
+                  {reports.map((report, index) => {
+                    const isCompleted = report.status?.toUpperCase() === 'COMPLETED';
+                    const isFailed = report.status?.toUpperCase() === 'FAILED';
+                    const isDownloading = downloadingReportId === report.reportId;
+                    return (
+                      <View
+                        key={report.reportId || index}
+                        style={[
+                          styles.tableRow,
+                          index % 2 === 1 && styles.tableRowAlternating,
+                          index === reports.length - 1 && styles.tableRowLast,
+                        ]}
+                      >
+                        {/* 1. F.Y. */}
+                        <View style={[styles.tableCell, styles.colFy]}>
+                          <Text style={styles.tableCellTextBold}>
+                            {deriveFinancialYear(report.fromDate, report.toDate)}
+                          </Text>
+                        </View>
+
+                        {/* 2. Status */}
+                        <View style={[styles.tableCell, styles.colStatus]}>
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              isCompleted
+                                ? styles.statusCompleted
+                                : isFailed
+                                  ? styles.statusFailed
+                                  : styles.statusPending,
+                            ]}
+                          >
                             <Text
                               style={[
-                                styles.tableCellText,
-                                {
-                                  color: txn.transactionType === 'INCOME' ? '#10B981' : '#EF4444',
-                                  fontWeight: '700',
-                                },
+                                styles.statusBadgeText,
+                                isCompleted
+                                  ? styles.statusTextCompleted
+                                  : isFailed
+                                    ? styles.statusTextFailed
+                                    : styles.statusTextPending,
                               ]}
+                              numberOfLines={1}
                             >
-                              {t(txn.transactionType)}
-                            </Text>
-                          </View>
-                          <View style={[styles.tableCell, { width: 150 }]}>
-                            <Text style={styles.tableCellText} numberOfLines={1}>
-                              {t(txn.transactionHeadCode) || txn.transactionHeadCode || '-'}
-                            </Text>
-                          </View>
-                          <View style={[styles.tableCell, { width: 110 }]}>
-                            <Text style={styles.tableCellText}>{txn.date || '-'}</Text>
-                          </View>
-                          <View style={[styles.tableCell, { width: 100 }]}>
-                            <Text
-                              style={[
-                                styles.tableCellText,
-                                {
-                                  color: txn.transactionType === 'INCOME' ? '#10B981' : '#EF4444',
-                                  fontWeight: '700',
-                                },
-                              ]}
-                            >
-                              ₹ {txn.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                            </Text>
-                          </View>
-                          <View style={[styles.tableCell, { width: 130 }]}>
-                            <Text style={styles.tableCellText} numberOfLines={1}>
-                              {txn.reference || '-'}
-                            </Text>
-                          </View>
-                          <View style={[styles.tableCell, { width: 180 }]}>
-                            <Text style={styles.tableCellText} numberOfLines={2}>
-                              {txn.remark || '-'}
+                              {t(report.status) || report.status}
                             </Text>
                           </View>
                         </View>
-                      ))}
-                    </View>
-                  </ScrollView>
+
+                        {/* 3. Download (Only shown when status === "COMPLETED") */}
+                        <View style={[styles.tableCell, styles.colDownload]}>
+                          {isCompleted ? (
+                            <TouchableOpacity
+                              style={[
+                                styles.downloadBtn,
+                                isDownloading && styles.downloadBtnLoading,
+                                !!downloadingReportId && !isDownloading && styles.downloadBtnDisabled,
+                              ]}
+                              onPress={() => handleDownload(report)}
+                              disabled={!!downloadingReportId}
+                              activeOpacity={0.7}
+                            >
+                              {isDownloading ? (
+                                <ActivityIndicator size="small" color="#0B5CAD" />
+                              ) : (
+                                <>
+                                  <MaterialIcons name="file-download" size={16} color="#0B5CAD" />
+                                  <Text style={styles.downloadBtnText}>{t('Download')}</Text>
+                                </>
+                              )}
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
-              )}
+              </View>
             </View>
-          )}
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -425,7 +451,6 @@ function CustomDropdown({
   disabled,
   modalTitle,
 }: CustomDropdownProps) {
-  const { t } = useLanguage();
   return (
     <View style={styles.dropdownContainer}>
       <Text style={styles.label}>{label}</Text>
@@ -459,7 +484,10 @@ function CustomDropdown({
           activeOpacity={1}
           onPress={() => setVisible(false)}
         >
-          <View style={styles.dropdownModalContent}>
+          <View
+            style={styles.dropdownModalContent}
+            onStartShouldSetResponder={() => true}
+          >
             <View style={styles.dropdownModalHeader}>
               <Text style={styles.dropdownModalTitle}>{modalTitle}</Text>
               <TouchableOpacity onPress={() => setVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -472,255 +500,28 @@ function CustomDropdown({
                   key={option}
                   style={[
                     styles.dropdownOption,
-                    value === t(option) && styles.dropdownOptionSelected,
+                    value === option && styles.dropdownOptionSelected,
                   ]}
                   onPress={() => {
-                    onSelect(t(option));
+                    onSelect(option);
                     setVisible(false);
                   }}
+                  activeOpacity={0.7}
                 >
                   <Text
                     style={[
                       styles.dropdownOptionText,
-                      value === t(option) && styles.dropdownOptionTextSelected,
+                      value === option && styles.dropdownOptionTextSelected,
                     ]}
                   >
-                    {t(option)}
+                    {option}
                   </Text>
-                  {value === t(option) && (
+                  {value === option && (
                     <MaterialIcons name="check" size={20} color="#0B5CAD" />
                   )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </View>
-  );
-}
-
-/* Custom Calendar Picker Component */
-interface CustomDatePickerProps {
-  label: string;
-  value: string;
-  placeholder: string;
-  onSelect: (date: string) => void;
-  visible: boolean;
-  setVisible: (visible: boolean) => void;
-  error?: string;
-  disabled?: boolean;
-  modalTitle: string;
-  maxDate?: Date;
-}
-
-function CustomDatePicker({
-  label,
-  value,
-  placeholder,
-  onSelect,
-  visible,
-  setVisible,
-  error,
-  disabled,
-  modalTitle,
-  maxDate,
-}: CustomDatePickerProps) {
-  const { t } = useLanguage();
-
-  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-
-  useEffect(() => {
-    if (visible) {
-      if (value) {
-        const parts = value.split('-');
-        if (parts.length === 3) {
-          setCurrentYear(parseInt(parts[0], 10));
-          setCurrentMonth(parseInt(parts[1], 10) - 1);
-        }
-      } else {
-        const today = new Date();
-        setCurrentYear(today.getFullYear());
-        setCurrentMonth(today.getMonth());
-      }
-    }
-  }, [visible, value]);
-
-  const monthNames = [
-    t('Jan'), t('Feb'), t('Mar'), t('Apr'),
-    t('May'), t('Jun'), t('Jul'), t('Aug'),
-    t('Sep'), t('Oct'), t('Nov'), t('Dec')
-  ];
-
-  const daysOfWeek = [
-    t('Sun'), t('Mon'), t('Tue'), t('Wed'), t('Thu'), t('Fri'), t('Sat')
-  ];
-
-  const handlePrevMonth = () => {
-    if (currentMonth === 0) {
-      setCurrentMonth(11);
-      setCurrentYear(currentYear - 1);
-    } else {
-      setCurrentMonth(currentMonth - 1);
-    }
-  };
-
-  const handleNextMonth = () => {
-    if (maxDate) {
-      if (currentYear > maxDate.getFullYear() ||
-        (currentYear === maxDate.getFullYear() && currentMonth >= maxDate.getMonth())) {
-        return;
-      }
-    }
-    if (currentMonth === 11) {
-      setCurrentMonth(0);
-      setCurrentYear(currentYear + 1);
-    } else {
-      setCurrentMonth(currentMonth + 1);
-    }
-  };
-
-  // Grid layout calculation
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay(); // 0-indexed starting day
-
-  const calendarCells = [];
-  for (let i = 0; i < firstDayIndex; i++) {
-    calendarCells.push({ key: `blank-${i}`, dayNum: null });
-  }
-
-  const todayDate = new Date();
-  todayDate.setHours(0, 0, 0, 0);
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const cellDate = new Date(currentYear, currentMonth, d);
-    cellDate.setHours(0, 0, 0, 0);
-    const isFuture = maxDate && cellDate > todayDate;
-
-    const dateStr = `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
-    const isSelected = value === dateStr;
-
-    calendarCells.push({
-      key: `day-${d}`,
-      dayNum: d,
-      dateStr,
-      isSelected,
-      isFuture,
-    });
-  }
-
-  // Visual display value formatting
-  const getDisplayValue = () => {
-    if (!value) return '';
-    const parts = value.split('-');
-    if (parts.length === 3) {
-      // Return localized or formatted string
-      const y = parts[0];
-      const mIdx = parseInt(parts[1], 10) - 1;
-      const d = parseInt(parts[2], 10);
-      return `${d} ${monthNames[mIdx]} ${y}`;
-    }
-    return value;
-  };
-
-  return (
-    <View style={styles.dropdownContainer}>
-      <Text style={styles.label}>{label}</Text>
-      <TouchableOpacity
-        style={[
-          styles.dropdownTrigger,
-          visible && styles.dropdownTriggerActive,
-          !!error && styles.dropdownTriggerError,
-          disabled && styles.dropdownTriggerDisabled,
-        ]}
-        onPress={() => {
-          if (!disabled) setVisible(true);
-        }}
-        activeOpacity={disabled ? 1 : 0.7}
-      >
-        <Text style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]}>
-          {getDisplayValue() || placeholder}
-        </Text>
-        <MaterialIcons name="date-range" size={22} color={disabled ? '#BAC4D0' : '#697788'} />
-      </TouchableOpacity>
-      {!!error && <Text style={styles.errorText}>{error}</Text>}
-
-      <Modal
-        visible={visible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.dropdownBackdrop}
-          activeOpacity={1}
-          onPress={() => setVisible(false)}
-        >
-          <View style={styles.datePickerModalContent}>
-            {/* Modal Header */}
-            <View style={styles.dropdownModalHeader}>
-              <Text style={styles.dropdownModalTitle}>{modalTitle}</Text>
-              <TouchableOpacity onPress={() => setVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <MaterialIcons name="close" size={24} color="#173B63" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Calendar Header Navigation */}
-            <View style={styles.calendarNavHeader}>
-              <TouchableOpacity onPress={handlePrevMonth} style={styles.calendarNavBtn}>
-                <MaterialIcons name="chevron-left" size={24} color="#0B5CAD" />
-              </TouchableOpacity>
-              <Text style={styles.calendarMonthTitle}>
-                {monthNames[currentMonth]} {currentYear}
-              </Text>
-              <TouchableOpacity onPress={handleNextMonth} style={styles.calendarNavBtn}>
-                <MaterialIcons name="chevron-right" size={24} color="#0B5CAD" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Days of Week Header */}
-            <View style={styles.weekHeadersRow}>
-              {daysOfWeek.map((day, idx) => (
-                <Text key={idx} style={styles.weekHeaderCell}>
-                  {day}
-                </Text>
-              ))}
-            </View>
-
-            {/* Calendar Grid cells */}
-            <View style={styles.calendarGrid}>
-              {calendarCells.map((cell) => {
-                if (cell.dayNum === null) {
-                  return <View key={cell.key} style={styles.calendarCellBlank} />;
-                }
-                return (
-                  <TouchableOpacity
-                    key={cell.key}
-                    style={[
-                      styles.calendarCell,
-                      cell.isSelected && styles.calendarCellSelected,
-                      cell.isFuture && styles.calendarCellDisabled,
-                    ]}
-                    disabled={cell.isFuture}
-                    onPress={() => {
-                      onSelect(cell.dateStr);
-                      setVisible(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.calendarCellText,
-                        cell.isSelected && styles.calendarCellTextSelected,
-                        cell.isFuture && styles.calendarCellTextDisabled,
-                      ]}
-                    >
-                      {cell.dayNum}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -753,11 +554,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
+    backgroundColor: '#FFFFFF',
   },
   headerTitle: {
     color: '#173B63',
     fontSize: 20,
     fontWeight: '700',
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -767,7 +570,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 720,
   },
   sectionTitle: {
     color: '#173B63',
@@ -780,18 +583,13 @@ const styles = StyleSheet.create({
     borderColor: '#D8E2EC',
     borderWidth: 1,
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
+    padding: 24,
+    marginBottom: 20,
     elevation: 3,
     shadowColor: '#12263F',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
-  },
-  datePickerRow: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-between',
   },
   submitBtn: {
     width: '100%',
@@ -807,6 +605,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 6,
   },
+  submitBtnDisabled: {
+    opacity: 0.7,
+  },
   submitBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
@@ -814,102 +615,40 @@ const styles = StyleSheet.create({
   },
   resultsContainer: {
     width: '100%',
-    marginTop: 8,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
-    gap: 12,
-  },
-  loadingText: {
-    color: '#697788',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  errorStateCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D8E2EC',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 3,
-    shadowColor: '#12263F',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-  },
-  errorSubContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 32,
-    gap: 8,
-  },
-  errorTextHeading: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#173B63',
-    marginTop: 8,
-  },
-  errorTextDescription: {
-    fontSize: 13,
-    color: '#EF4444',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    lineHeight: 18,
-  },
-  emptyStateCard: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D8E2EC',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 3,
-    shadowColor: '#12263F',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-  },
-  emptySubContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    gap: 12,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#697788',
-    fontWeight: '600',
-  },
-  warningBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EEF6FC',
-    borderColor: '#D0E2F5',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    gap: 8,
-    width: '100%',
-  },
-  warningBannerText: {
-    color: '#0B5CAD',
-    fontSize: 12,
-    fontWeight: '600',
-    flex: 1,
-    lineHeight: 16,
+    marginTop: 4,
   },
   resultsCard: {
     backgroundColor: '#FFFFFF',
     borderColor: '#D8E2EC',
     borderWidth: 1,
     borderRadius: 12,
-    padding: 16,
+    padding: 24,
+    marginBottom: 20,
     elevation: 3,
     shadowColor: '#12263F',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
     shadowRadius: 10,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+  },
+  cardHeaderTitle: {
+    color: '#173B63',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  cardDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: '#E4EBF2',
+    marginBottom: 20,
   },
   /* Tabular Layout */
   table: {
@@ -924,7 +663,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F7FA',
     borderBottomWidth: 1,
     borderBottomColor: '#E4EBF2',
-    height: 44,
+    minHeight: 44,
+    paddingVertical: 8,
     alignItems: 'center',
   },
   tableHeaderCell: {
@@ -941,7 +681,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: '#E4EBF2',
-    height: 52,
+    minHeight: 52,
+    paddingVertical: 8,
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
@@ -955,11 +696,127 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     justifyContent: 'center',
   },
-  tableCellText: {
+  tableCellTextBold: {
     fontSize: 13,
-    color: '#354052',
+    fontWeight: '700',
+    color: '#173B63',
   },
-  /* Input Control Dropdown & Picker Styling */
+  centerText: {
+    textAlign: 'center',
+  },
+  /* 3 Columns Flex Layout */
+  colFy: {
+    flex: 1,
+    minWidth: 80,
+    justifyContent: 'center',
+  },
+  colStatus: {
+    flex: 1.2,
+    minWidth: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  colDownload: {
+    flex: 1.1,
+    minWidth: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  /* Status Badges */
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    maxWidth: '100%',
+  },
+  statusCompleted: {
+    backgroundColor: '#DEF7EC',
+  },
+  statusPending: {
+    backgroundColor: '#FEF3C7',
+  },
+  statusFailed: {
+    backgroundColor: '#FDE8E8',
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  statusTextCompleted: {
+    color: '#03543F',
+  },
+  statusTextPending: {
+    color: '#92400E',
+  },
+  statusTextFailed: {
+    color: '#9B1C1C',
+  },
+  /* Download Button */
+  downloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF6FC',
+    borderWidth: 1,
+    borderColor: '#B9D7F2',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    gap: 4,
+    minWidth: 80,
+    minHeight: 32,
+  },
+  downloadBtnLoading: {
+    opacity: 0.85,
+  },
+  downloadBtnDisabled: {
+    opacity: 0.5,
+  },
+  downloadBtnText: {
+    color: '#0B5CAD',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    gap: 12,
+  },
+  loadingText: {
+    color: '#697788',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  /* Toast Alert */
+  toastContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 20,
+    left: 20,
+    right: 20,
+    backgroundColor: '#10B981',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    elevation: 8,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    zIndex: 9999,
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  /* Input Control Dropdown Styling */
   dropdownContainer: {
     marginBottom: 16,
     width: '100%',
@@ -1007,15 +864,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: '50%',
+    maxHeight: '75%',
     paddingBottom: 24,
-  },
-  datePickerModalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingBottom: 32,
-    width: '100%',
   },
   dropdownModalHeader: {
     flexDirection: 'row',
@@ -1047,6 +897,7 @@ const styles = StyleSheet.create({
   dropdownOptionText: {
     fontSize: 14,
     color: '#173B63',
+    flex: 1,
   },
   dropdownOptionTextSelected: {
     color: '#0B5CAD',
@@ -1057,75 +908,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     fontWeight: '500',
-  },
-  /* Calendar Layout Styles */
-  calendarNavHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  calendarNavBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EEF6FC',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  calendarMonthTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#173B63',
-  },
-  weekHeadersRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 14,
-    marginBottom: 8,
-  },
-  weekHeaderCell: {
-    width: '14.28%',
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#697788',
-    textTransform: 'uppercase',
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 14,
-  },
-  calendarCell: {
-    width: '14.28%',
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 2,
-    borderRadius: 4,
-  },
-  calendarCellBlank: {
-    width: '14.28%',
-    height: 40,
-  },
-  calendarCellSelected: {
-    backgroundColor: '#0B5CAD',
-  },
-  calendarCellDisabled: {
-    backgroundColor: 'transparent',
-  },
-  calendarCellText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#173B63',
-  },
-  calendarCellTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  calendarCellTextDisabled: {
-    color: '#BAC4D0',
-    textDecorationLine: 'line-through',
   },
 });

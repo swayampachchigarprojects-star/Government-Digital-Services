@@ -5,7 +5,6 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   KeyboardAvoidingView,
   ScrollView,
   Platform,
@@ -14,6 +13,7 @@ import {
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/apiClient';

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -66,12 +67,11 @@ export function getActiveBottomTab(screen: Screen): BottomNavTabId | null {
     case 'dashboard':
       return 'dashboard';
     case 'services':
-      return 'transactions';
-    case 'transactions-report':
     case 'income':
     case 'expense':
       return 'transactions';
     case 'report':
+    case 'transactions-report':
       return 'reports';
     case 'profile':
       return 'profile';
@@ -85,11 +85,15 @@ export function BottomNavigationBar({
   onNavigate,
 }: BottomNavigationBarProps) {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const activeTabId = getActiveBottomTab(currentScreen);
+
+  // Dynamic bottom padding: handles gesture bar on Android, home indicator on iOS, or standard fallback
+  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'ios' ? 12 : 8);
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { paddingBottom: bottomPadding }]}>
         {NAV_TABS.map((tab) => {
           const isActive = activeTabId === tab.id;
 
@@ -121,6 +125,8 @@ export function BottomNavigationBar({
                   isActive && styles.tabLabelActive,
                 ]}
                 numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
               >
                 {t(tab.labelKey)}
               </Text>
@@ -149,7 +155,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 10,
     paddingHorizontal: 8,
   },
   tabItem: {

@@ -5,7 +5,6 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   KeyboardAvoidingView,
   ScrollView,
   Platform,
@@ -13,6 +12,7 @@ import {
   Modal,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -253,16 +253,18 @@ export function CreateEntity({ onCancel, onCreateSuccess }: CreateEntityProps) {
             <View style={styles.badge}>
               <MaterialIcons name="domain" size={24} color="#FFFFFF" />
             </View>
-            <View>
-              <Text style={styles.headerTitle}>{t('Create Entity')}</Text>
-              <Text style={styles.headerSubtitle}>
-                {t('Register your accounting entity to get started')}
+            <View style={styles.headerTextWrapper}>
+              <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                {t('Entity')}
               </Text>
+              {/* <Text style={styles.headerSubtitle} numberOfLines={2}>
+                {t('Register your accounting entity to get started')}
+              </Text> */}
             </View>
           </View>
 
           {/* Language Switcher */}
-          <View style={styles.languageToggle}>
+          {/* <View style={styles.languageToggle}>
             <TouchableOpacity
               style={[
                 styles.languageBtn,
@@ -298,7 +300,7 @@ export function CreateEntity({ onCancel, onCreateSuccess }: CreateEntityProps) {
                 EN
               </Text>
             </TouchableOpacity>
-          </View>
+          </View> */}
         </View>
 
         <ScrollView
@@ -553,7 +555,9 @@ export function CreateEntity({ onCancel, onCreateSuccess }: CreateEntityProps) {
                 activeOpacity={0.7}
                 disabled={isSubmitting}
               >
-                <Text style={styles.cancelButtonText}>{t('Cancel')}</Text>
+                <Text style={styles.cancelButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                  {t('Cancel')}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -570,7 +574,9 @@ export function CreateEntity({ onCancel, onCreateSuccess }: CreateEntityProps) {
                 ) : (
                   <>
                     <MaterialIcons name="check" size={20} color="#FFFFFF" />
-                    <Text style={styles.createButtonText}>{t('Create')}</Text>
+                    <Text style={styles.createButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                      {t('Create')}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -693,6 +699,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flex: 1,
+  },
+  headerTextWrapper: {
+    flex: 1,
+    flexShrink: 1,
   },
   badge: {
     width: 44,
@@ -850,6 +860,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 12,
     paddingBottom: 8,
     borderBottomWidth: 1,
@@ -859,6 +871,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 1,
   },
   addPaymentTypeButton: {
     flexDirection: 'row',
@@ -1011,7 +1024,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: '75%',
-    paddingBottom: Platform.OS === 'ios' ? 32 : 16,
+    paddingBottom: Platform.OS === 'ios' ? 32 : 20,
   },
   modalHeader: {
     flexDirection: 'row',

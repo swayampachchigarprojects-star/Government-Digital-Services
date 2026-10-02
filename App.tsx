@@ -11,16 +11,19 @@ import { ReportScreen } from './src/screens/ReportScreen';
 import { TransactionsReportScreen } from './src/screens/TransactionsReportScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { BottomNavigationBar, Screen } from './src/components/BottomNavigationBar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LanguageProvider } from './src/contexts/LanguageContext';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </LanguageProvider>
+    <SafeAreaProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </LanguageProvider>
+    </SafeAreaProvider>
   );
 }
 

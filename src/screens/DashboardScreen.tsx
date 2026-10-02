@@ -4,12 +4,12 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Platform,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { fetchBalances, BalanceItem } from '../services/dashboardService';
@@ -167,7 +167,7 @@ export function DashboardScreen({
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 460,
   },
   header: {
     marginBottom: 24,
@@ -647,7 +647,8 @@ const styles = StyleSheet.create({
   balanceValueContainer: {
     alignItems: 'flex-end',
     justifyContent: 'center',
-    marginLeft: 4,
+    marginLeft: 6,
+    flexShrink: 0,
   },
   balanceValue: {
     fontSize: 15,
@@ -859,6 +860,7 @@ const styles = StyleSheet.create({
   },
   detailTextContainer: {
     flexDirection: 'column',
+    flex: 1,
   },
   detailLabel: {
     fontSize: 11,

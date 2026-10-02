@@ -5,12 +5,13 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
+  KeyboardAvoidingView,
   ScrollView,
   Platform,
   Alert,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { apiRequest } from '../services/apiClient';
@@ -334,28 +335,34 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
   const selectedPaymentType = paymentTypes.find((pt) => pt.paymentTypeId === paymentTypeId);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {/* Toast Alert */}
-      {toastVisible && (
-        <View style={styles.toastContainer}>
-          <MaterialIcons name="check-circle" size={22} color="#FFFFFF" />
-          <Text style={styles.toastText}>{toastMessage}</Text>
-        </View>
-      )}
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={styles.container}>
-          {/* Screen Header */}
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.6}>
-              <MaterialIcons name="arrow-back" size={24} color="#173B63" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>{t('Expense Entry')}</Text>
+        {/* Toast Alert */}
+        {toastVisible && (
+          <View style={styles.toastContainer}>
+            <MaterialIcons name="check-circle" size={22} color="#FFFFFF" />
+            <Text style={styles.toastText}>{toastMessage}</Text>
           </View>
+        )}
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.container}>
+            {/* Screen Header */}
+            <View style={styles.header}>
+              <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.6}>
+                <MaterialIcons name="arrow-back" size={24} color="#173B63" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+                {t('Expense Entry')}
+              </Text>
+            </View>
 
           {/* Form */}
           <View style={styles.formCard}>
@@ -563,6 +570,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
           </View>
         </View>
       </ScrollView>
+    </KeyboardAvoidingView>
 
       {/* Confirmation Modal */}
       <Modal
@@ -576,56 +584,58 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
             <Text style={styles.modalTitle}>{t('Confirm Expense Entry')}</Text>
             <Text style={styles.modalSubtitle}>{t('Please verify the transaction details below before committing to database.')}</Text>
 
-            <View style={styles.modalDetails}>
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>{t('Expense Type')}</Text>
-                <Text style={styles.modalValue}>{t(expenseType)}</Text>
-              </View>
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>{t('Expense Subtype')}</Text>
-                <Text style={styles.modalValue}>
-                  {expenseSubtypeNames.map((name) => t(name)).join(', ')}
-                </Text>
-              </View>
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>{t('Amount')}</Text>
-                <View>
-                  {expenseSubtypeCodes.map((code) => {
-                    const subtype = expenseSubTypes.find((item) => item.txnCode === code);
-                    const value = parseFloat(subtypeAmounts[code] || '0') || 0;
-                    return (
-                      <Text key={code} style={[styles.modalValue, { color: '#EF4444' }]}>
-                        {`${subtype ? t(subtype.txnName) : code}: ₹ ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                      </Text>
-                    );
-                  })}
-                  <Text style={[styles.modalAmount, { color: '#EF4444' }]}>₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
-                </View>
-              </View>
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>{t('Payment Type')}</Text>
-                <Text style={styles.modalValue}>
-                  {selectedPaymentType
-                    ? t(selectedPaymentType.paymentType || selectedPaymentType.name || '') ||
-                      selectedPaymentType.paymentType ||
-                      selectedPaymentType.name ||
-                      '-'
-                    : '-'}
-                </Text>
-              </View>
-              {!!remarks && (
+            <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+              <View style={styles.modalDetails}>
                 <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>{t('Remarks')}</Text>
-                  <Text style={styles.modalValue}>{remarks}</Text>
+                  <Text style={styles.modalLabel}>{t('Expense Type')}</Text>
+                  <Text style={styles.modalValue}>{t(expenseType)}</Text>
                 </View>
-              )}
-              {!!refId && (
                 <View style={styles.modalRow}>
-                  <Text style={styles.modalLabel}>{t('Reference ID')}</Text>
-                  <Text style={styles.modalValue}>{refId}</Text>
+                  <Text style={styles.modalLabel}>{t('Expense Subtype')}</Text>
+                  <Text style={styles.modalValue}>
+                    {expenseSubtypeNames.map((name) => t(name)).join(', ')}
+                  </Text>
                 </View>
-              )}
-            </View>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>{t('Amount')}</Text>
+                  <View>
+                    {expenseSubtypeCodes.map((code) => {
+                      const subtype = expenseSubTypes.find((item) => item.txnCode === code);
+                      const value = parseFloat(subtypeAmounts[code] || '0') || 0;
+                      return (
+                        <Text key={code} style={[styles.modalValue, { color: '#EF4444' }]}>
+                          {`${subtype ? t(subtype.txnName) : code}: ₹ ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        </Text>
+                      );
+                    })}
+                    <Text style={[styles.modalAmount, { color: '#EF4444' }]}>₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                  </View>
+                </View>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>{t('Payment Type')}</Text>
+                  <Text style={styles.modalValue}>
+                    {selectedPaymentType
+                      ? t(selectedPaymentType.paymentType || selectedPaymentType.name || '') ||
+                        selectedPaymentType.paymentType ||
+                        selectedPaymentType.name ||
+                        '-'
+                      : '-'}
+                  </Text>
+                </View>
+                {!!remarks && (
+                  <View style={styles.modalRow}>
+                    <Text style={styles.modalLabel}>{t('Remarks')}</Text>
+                    <Text style={styles.modalValue}>{remarks}</Text>
+                  </View>
+                )}
+                {!!refId && (
+                  <View style={styles.modalRow}>
+                    <Text style={styles.modalLabel}>{t('Reference ID')}</Text>
+                    <Text style={styles.modalValue}>{refId}</Text>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -865,6 +875,7 @@ const styles = StyleSheet.create({
     color: '#173B63',
     fontSize: 20,
     fontWeight: '700',
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
@@ -1013,7 +1024,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: '50%',
+    maxHeight: '75%',
     paddingBottom: 24,
   },
   dropdownModalHeader: {
@@ -1046,6 +1057,7 @@ const styles = StyleSheet.create({
   dropdownOptionText: {
     fontSize: 14,
     color: '#173B63',
+    flex: 1,
   },
   dropdownOptionTextSelected: {
     color: '#0B5CAD',

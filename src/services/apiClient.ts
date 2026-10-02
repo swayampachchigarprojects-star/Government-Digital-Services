@@ -30,6 +30,10 @@ export function configureApiClient(nextOptions: ApiClientOptions): void {
   options = nextOptions;
 }
 
+export function getAuthToken(): string | null {
+  return options.getToken();
+}
+
 function getErrorMessage(status: number): string {
   switch (status) {
     case 400: return 'The request could not be completed.';

@@ -5,6 +5,7 @@ import {
   View,
   TouchableOpacity,
   Modal,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -73,7 +74,7 @@ export function CustomDatePicker({
   ];
 
   const daysOfWeek = [
-    t('Sun'), t('Mon'), t('Tue'), t('Wed'), t('Thu'), t('Fri'), t('Sat')
+    t('Mon'), t('Tue'), t('Wed'), t('Thu'), t('Fri'), t('Sat'), t('Sun')
   ];
 
   const handlePrevMonth = () => {
@@ -104,7 +105,8 @@ export function CustomDatePicker({
 
   // Grid calculation
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
+  // const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
+  const firstDayIndex = (new Date(currentYear, currentMonth, 1).getDay() + 6) % 7;
 
   const calendarCells = [];
   for (let i = 0; i < firstDayIndex; i++) {
@@ -158,7 +160,7 @@ export function CustomDatePicker({
         }}
         activeOpacity={disabled ? 1 : 0.7}
       >
-        <Text style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]}>
+        <Text style={[styles.dropdownValue, !value && styles.dropdownPlaceholder]} numberOfLines={1}>
           {getDisplayValue() || placeholder}
         </Text>
         <MaterialIcons name="date-range" size={22} color={disabled ? '#BAC4D0' : '#697788'} />
@@ -206,7 +208,7 @@ export function CustomDatePicker({
             {/* Days of Week Header */}
             <View style={styles.weekHeadersRow}>
               {daysOfWeek.map((day, idx) => (
-                <Text key={idx} style={styles.weekHeaderCell}>
+                <Text key={idx} style={styles.weekHeaderCell} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
                   {day}
                 </Text>
               ))}
@@ -301,7 +303,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    paddingBottom: 32,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
     width: '100%',
   },
   dropdownModalHeader: {

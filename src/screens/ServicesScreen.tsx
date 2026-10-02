@@ -4,12 +4,12 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Platform,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { CustomDatePicker } from '../components/CustomDatePicker';
@@ -121,7 +121,7 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -261,7 +261,7 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
                       setDateError('');
                     }}
                     error={dateError}
-                    modalTitle={t('Select Date Modal Title')}
+                    // modalTitle={t('Select Date Modal Title')}
                     maxDate={new Date()}
                   />
                 </View>
@@ -370,6 +370,8 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
                                   isIncome ? styles.typePillTextIncome : styles.typePillTextExpense,
                                 ]}
                                 numberOfLines={1}
+                                adjustsFontSizeToFit
+                                minimumFontScale={0.8}
                               >
                                 {t(txn.transactionType) || txn.transactionType}
                               </Text>
@@ -389,6 +391,8 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
                                 isIncome ? { color: '#10B981' } : { color: '#EF4444' },
                               ]}
                               numberOfLines={1}
+                              adjustsFontSizeToFit
+                              minimumFontScale={0.75}
                             >
                               ₹ {formattedAmount}
                             </Text>
@@ -497,7 +501,7 @@ const styles = StyleSheet.create({
   },
   container: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 460,
   },
   header: {
     marginBottom: 24,
@@ -774,6 +778,7 @@ const styles = StyleSheet.create({
   },
   detailTextContainer: {
     flexDirection: 'column',
+    flex: 1,
   },
   detailLabel: {
     fontSize: 11,
