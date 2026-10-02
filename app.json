@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.haash.lekha"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -25,6 +26,11 @@
     "plugins": [
       "expo-web-browser",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bd0273d5-f70a-4e42-b9ca-b989d6eeccb1"
+      }
+    }
   }
 }
