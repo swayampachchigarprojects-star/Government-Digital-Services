@@ -1,4 +1,4 @@
-const apiBaseUrl = 'http://192.168.29.94:8080';
+const apiBaseUrl = 'http://localhost:8080';
 
 export const config = {
   apiBaseUrl,

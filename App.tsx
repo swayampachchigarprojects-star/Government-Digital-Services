@@ -34,14 +34,21 @@ function AppContent() {
 
   const handleLogout = async () => {
     await logout();
+    setHasInitializedSession(true);
     setCurrentScreen('login');
   };
 
   useEffect(() => {
     if (isHydrating) return;
-    if (!isAuthenticated && currentScreen !== 'login') {
-      setCurrentScreen('login');
+    if (!isAuthenticated) {
+      if (currentScreen !== 'login') {
+        setCurrentScreen('login');
+      }
+      if (!hasInitializedSession) {
+        setHasInitializedSession(true);
+      }
     } else if (isAuthenticated && currentScreen === 'login' && !hasInitializedSession) {
+      // Auto-navigate to dashboard ONLY on initial cold app start when stored token was rehydrated
       setHasInitializedSession(true);
       setCurrentScreen('dashboard');
     }

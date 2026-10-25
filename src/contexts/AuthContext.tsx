@@ -12,7 +12,8 @@ import {
   storeToken,
   storeUser,
 } from '../services/tokenStorage';
-import { setCachedEntityId } from '../services/entityService';
+import { setCachedEntityId, clearEntityCache, extractEntityId } from '../services/entityService';
+import { clearPaymentTypesCache } from '../services/transactionService';
 
 interface AuthContextValue {
   token: string | null;
@@ -40,7 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     setUser(null);
     setAccountEntityId(null);
-    setCachedEntityId(null);
+    clearEntityCache();
+    clearPaymentTypesCache();
     await Promise.all([clearStoredToken(), clearStoredUser(), clearStoredEntityId()]);
   };
 
@@ -126,7 +128,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isHydrating,
     setSession: async (session: AuthenticationResponse) => {
       const { accessToken, tokenType: _tokenType, expiresInSeconds: _expiresInSeconds, ...profile } = session;
-      const rawEntityId = session.accountEntityId || session.accountingEntityId || null;
+      const rawEntityId =
+        session.accountEntityId ||
+        session.accountingEntityId ||
+        extractEntityId(session) ||
+        null;
       await Promise.all([
         storeToken(accessToken),
         storeUser(profile),

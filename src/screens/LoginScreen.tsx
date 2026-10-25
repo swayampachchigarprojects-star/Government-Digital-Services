@@ -19,7 +19,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../services/apiClient';
 import { authService } from '../services/authService';
 import { useGoogleAuth } from '../services/googleAuth';
-import { getAccountingEntity } from '../services/entityService';
+import { getAccountingEntity, extractEntityId } from '../services/entityService';
+import { fetchPaymentTypes, normalizePaymentTypes, setCachedPaymentTypes } from '../services/transactionService';
 
 interface LoginScreenProps {
   onLoginSuccess: () => void;
@@ -53,8 +54,35 @@ export function LoginScreen({ onLoginSuccess, onNavigateToCreateEntity }: LoginS
       // Immediately after successful Login, call GET http://192.168.0.248:8080/accounting-entity
       const entityResult = await getAccountingEntity();
       if (entityResult.exists) {
-        if (entityResult.accountEntityId) {
-          await setEntityId(entityResult.accountEntityId);
+        let entityId = entityResult.accountEntityId;
+        if (!entityId && entityResult.data) {
+          entityId = extractEntityId(entityResult.data);
+        }
+        if (!entityId) {
+          entityId = extractEntityId(session);
+        }
+
+        if (entityResult.data && typeof entityResult.data === 'object') {
+          const entityObj = Array.isArray(entityResult.data)
+            ? (entityResult.data[0] as Record<string, unknown>)
+            : (entityResult.data as Record<string, unknown>);
+          if (Array.isArray(entityObj?.paymentTypes)) {
+            const normalized = normalizePaymentTypes(entityObj.paymentTypes);
+            if (normalized.length > 0) {
+              setCachedPaymentTypes(normalized);
+            }
+          }
+        }
+
+        if (entityId) {
+          await setEntityId(entityId);
+          try {
+            await fetchPaymentTypes(entityId, true);
+          } catch (err) {
+            if (__DEV__) {
+              console.warn('[LoginScreen] Error prefetching payment types:', err);
+            }
+          }
         }
         // 200 -> navigate to Dashboard
         onLoginSuccess();

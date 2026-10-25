@@ -14,8 +14,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchUserProfile, getCachedUserProfile, UserProfile } from '../services/userService';
-import { getAccountEntity, getCachedEntityData } from '../services/entityService';
-import { fetchPaymentTypes, PaymentType } from '../services/transactionService';
+import { getAccountEntity, getCachedEntityData, extractEntityId } from '../services/entityService';
+import { fetchPaymentTypes, normalizePaymentTypes, PaymentType } from '../services/transactionService';
 
 interface ProfileScreenProps {
   onBack?: () => void;
@@ -41,21 +41,31 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
         const [fetchedUser, fetchedAccountEntity, fetchedPaymentTypes] = await Promise.all([
           fetchUserProfile(true),
           getAccountEntity(),
-          fetchPaymentTypes(),
+          fetchPaymentTypes(undefined, true),
         ]);
 
         if (isMounted) {
           if (fetchedUser) setProfileUser(fetchedUser);
-          if (fetchedAccountEntity) setEntityData(fetchedAccountEntity);
+          const normalizedEntity = (Array.isArray(fetchedAccountEntity)
+            ? (fetchedAccountEntity[0] as Record<string, unknown>)
+            : fetchedAccountEntity) as Record<string, unknown> | null;
+          if (normalizedEntity) setEntityData(normalizedEntity);
+
           if (fetchedPaymentTypes && fetchedPaymentTypes.length > 0) {
             setPaymentTypes(fetchedPaymentTypes);
-          } else if (fetchedAccountEntity) {
-            const entityId = (fetchedAccountEntity?.id ||
-              fetchedAccountEntity?.accountEntityId ||
-              fetchedAccountEntity?.accountingEntityId) as string | undefined;
+          } else {
+            const rawEntity = normalizedEntity || getCachedEntityData();
+            const entity = (Array.isArray(rawEntity) ? rawEntity[0] : rawEntity) as Record<string, unknown> | null;
+            const entityId = extractEntityId(entity);
             if (entityId) {
-              const retryPaymentTypes = await fetchPaymentTypes(entityId);
-              if (isMounted && retryPaymentTypes) setPaymentTypes(retryPaymentTypes);
+              const retryPaymentTypes = await fetchPaymentTypes(entityId, true);
+              if (isMounted && retryPaymentTypes && retryPaymentTypes.length > 0) {
+                setPaymentTypes(retryPaymentTypes);
+              } else if (entity && Array.isArray(entity.paymentTypes)) {
+                setPaymentTypes(normalizePaymentTypes(entity.paymentTypes));
+              }
+            } else if (entity && Array.isArray(entity.paymentTypes)) {
+              setPaymentTypes(normalizePaymentTypes(entity.paymentTypes));
             }
           }
         }
@@ -92,21 +102,24 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
     ((firstName.charAt(0) || '') + (lastName.charAt(0) || '')).toUpperCase() || 'TA';
 
   // Resolved entity fields from GET /account-entity with fallback to auth context
+  const normalizedEntity = (Array.isArray(entityData)
+    ? (entityData[0] as Record<string, unknown>)
+    : entityData) as Record<string, unknown> | null;
   const entityName =
-    (entityData?.name as string) ??
-    (entityData?.accountingEntityName as string) ??
-    (entityData?.entityName as string) ??
+    (normalizedEntity?.name as string) ??
+    (normalizedEntity?.accountingEntityName as string) ??
+    (normalizedEntity?.entityName as string) ??
     user?.accountingEntityName ??
     '';
   const rawStatus =
-    (entityData?.status as string) ||
+    (normalizedEntity?.status as string) ||
     ((user as Record<string, unknown> | null)?.status as string) ||
     'Active';
   const entityStatus = t(rawStatus) || rawStatus;
-  const rawDistrict = (entityData?.district as string) ?? user?.district ?? '';
+  const rawDistrict = (normalizedEntity?.district as string) ?? user?.district ?? '';
   const entityDistrict = rawDistrict ? t(rawDistrict) || rawDistrict : '';
-  const entityTaluka = (entityData?.taluka as string) ?? user?.taluka ?? '';
-  const entityVillage = (entityData?.village as string) ?? user?.village ?? '';
+  const entityTaluka = (normalizedEntity?.taluka as string) ?? user?.taluka ?? '';
+  const entityVillage = (normalizedEntity?.village as string) ?? user?.village ?? '';
 
   const handleLogoutPress = () => {
     if (Platform.OS === 'web') {
@@ -259,12 +272,26 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
             ) : (
               <View style={styles.paymentTypeList}>
                 {paymentTypes.map((pt, index) => {
-                  const label = pt.paymentType || pt.name || '-';
+                  const rec = pt as Record<string, unknown>;
+                  const label =
+                    pt.paymentType ||
+                    (typeof rec.paymentTypeName === 'string' ? rec.paymentTypeName : '') ||
+                    pt.name ||
+                    (typeof rec.type === 'string' ? rec.type : '') ||
+                    '-';
                   const displayLabel = t(label) || label;
+                  const balanceVal =
+                    typeof pt.balance === 'number'
+                      ? pt.balance
+                      : typeof rec.balValue === 'number'
+                        ? rec.balValue
+                        : typeof rec.amount === 'number'
+                          ? rec.amount
+                          : undefined;
 
                   return (
                     <View
-                      key={pt.paymentTypeId || `${label}-${index}`}
+                      key={pt.paymentTypeId || (typeof rec.id === 'string' ? rec.id : '') || `${label}-${index}`}
                       style={[
                         styles.paymentTypeRow,
                         index === paymentTypes.length - 1 && styles.paymentTypeRowLast,
@@ -274,15 +301,12 @@ export function ProfileScreen({ onLogout }: ProfileScreenProps) {
                         <MaterialIcons name="account-balance-wallet" size={18} color="#0B5CAD" />
                       </View>
                       <View style={styles.detailTextContainer}>
-                        {/* <Text style={styles.detailLabel}>
-                          {t('Payment Type')} #{index + 1}
-                        </Text> */}
                         <Text style={styles.paymentTypeName}>{displayLabel}</Text>
                       </View>
-                      {typeof pt.balance === 'number' && (
+                      {balanceVal !== undefined && (
                         <View style={styles.balanceBadge}>
                           <Text style={styles.balanceBadgeText}>
-                            ₹ {pt.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            ₹ {balanceVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                           </Text>
                         </View>
                       )}

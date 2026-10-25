@@ -39,29 +39,70 @@ export function getCachedEntityData(): Record<string, unknown> | null {
 }
 
 export function setCachedEntityData(data: Record<string, unknown> | null): void {
-  cachedEntityData = data;
+  if (Array.isArray(data)) {
+    cachedEntityData = (data[0] as Record<string, unknown>) || null;
+  } else {
+    cachedEntityData = data;
+  }
+}
+
+export function clearEntityCache(): void {
+  cachedEntityId = null;
+  cachedEntityData = null;
+  resolvingEntityPromise = null;
 }
 
 /**
  * Extracts accountEntityId from any supported response structure:
+ * - string ID
+ * - array of entities
  * - { accountEntityId: "..." }
  * - { accountingEntityId: "..." }
+ * - { entityId: "..." }
  * - { id: "..." }
+ * - nested objects: { data: { ... } }, { entity: { ... } }, etc.
  */
 export function extractEntityId(data: unknown): string | null {
-  if (typeof data !== 'object' || data === null) return null;
+  if (!data) return null;
+  if (typeof data === 'string' && data.trim()) {
+    return data.trim();
+  }
+  if (Array.isArray(data) && data.length > 0) {
+    for (const item of data) {
+      const extracted = extractEntityId(item);
+      if (extracted) return extracted;
+    }
+    return null;
+  }
+  if (typeof data !== 'object') return null;
   const record = data as Record<string, unknown>;
-  if (typeof record.accountEntityId === 'string' && record.accountEntityId.trim()) {
-    return record.accountEntityId.trim();
+
+  const directKeys = [
+    'accountEntityId',
+    'accountingEntityId',
+    'entityId',
+    'id',
+  ];
+  for (const key of directKeys) {
+    const val = record[key];
+    if (typeof val === 'string' && val.trim()) {
+      return val.trim();
+    }
   }
-  if (typeof record.accountingEntityId === 'string' && record.accountingEntityId.trim()) {
-    return record.accountingEntityId.trim();
+
+  const nestedKeys = ['data', 'entity', 'accountingEntity', 'accountEntity'];
+  for (const key of nestedKeys) {
+    const nested = record[key];
+    if (nested && typeof nested === 'object') {
+      const extracted = extractEntityId(nested);
+      if (extracted) return extracted;
+    }
   }
-  if (typeof record.id === 'string' && record.id.trim()) {
-    return record.id.trim();
-  }
+
   return null;
 }
+
+let resolvingEntityPromise: Promise<string | null> | null = null;
 
 /**
  * Dynamically resolves the accounting entity ID:
@@ -69,6 +110,8 @@ export function extractEntityId(data: unknown): string | null {
  * 2. In-memory cached entity ID
  * 3. Stored entity ID from secure storage / local storage
  * 4. Stored user object entity ID
+ * 5. Cached entity data extraction
+ * 6. Fallback fetch via getAccountingEntity()
  */
 export async function resolveEntityId(explicitId?: string | null): Promise<string | null> {
   if (explicitId && typeof explicitId === 'string' && explicitId.trim()) {
@@ -90,7 +133,35 @@ export async function resolveEntityId(explicitId?: string | null): Promise<strin
     cachedEntityId = userEntityId.trim();
     return cachedEntityId;
   }
-  return null;
+  if (cachedEntityData) {
+    const fromCachedData = extractEntityId(cachedEntityData);
+    if (fromCachedData) {
+      cachedEntityId = fromCachedData;
+      await storeEntityId(fromCachedData);
+      return cachedEntityId;
+    }
+  }
+
+  // Deduplicate concurrent in-flight entity resolution requests
+  if (resolvingEntityPromise) {
+    return resolvingEntityPromise;
+  }
+
+  resolvingEntityPromise = (async () => {
+    try {
+      const checkResult = await getAccountingEntity();
+      if (checkResult.exists && checkResult.accountEntityId) {
+        return checkResult.accountEntityId;
+      }
+    } catch {
+      // Non-blocking fallback
+    } finally {
+      resolvingEntityPromise = null;
+    }
+    return null;
+  })();
+
+  return resolvingEntityPromise;
 }
 
 /**
@@ -107,9 +178,26 @@ export async function getAccountingEntity(): Promise<AccountingEntityCheckResult
       authenticated: true,
     });
     if (typeof data === 'object' && data !== null) {
-      cachedEntityData = data as Record<string, unknown>;
+      cachedEntityData = Array.isArray(data)
+        ? (data[0] as Record<string, unknown>) || null
+        : (data as Record<string, unknown>);
     }
-    const entityId = extractEntityId(data);
+    console.log("Data is: " + data);
+    let entityId = extractEntityId(data);
+    if (!entityId) {
+      const storedId = await getStoredEntityId();
+      if (storedId && storedId.trim()) {
+        entityId = storedId.trim();
+      } else {
+        const storedUser = await getStoredUser();
+        const userEntityId =
+          storedUser?.accountingEntityId ||
+          (storedUser as Record<string, unknown> | null)?.accountEntityId;
+        if (typeof userEntityId === 'string' && userEntityId.trim()) {
+          entityId = userEntityId.trim();
+        }
+      }
+    }
     if (entityId) {
       cachedEntityId = entityId;
       await storeEntityId(entityId);
@@ -134,7 +222,9 @@ export async function getAccountEntity(): Promise<Record<string, unknown> | null
       authenticated: true,
     });
     if (typeof data === 'object' && data !== null) {
-      const record = data as Record<string, unknown>;
+      const record = Array.isArray(data)
+        ? (data[0] as Record<string, unknown>) || null
+        : (data as Record<string, unknown>);
       cachedEntityData = record;
       const entityId = extractEntityId(record);
       if (entityId) {

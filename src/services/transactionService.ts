@@ -18,7 +18,7 @@ export interface TransactionFilters {
 import { Platform, Linking } from 'react-native';
 import { config } from '../config';
 import { apiRequest, apiRequestWithResponse, getAuthToken, ApiError } from './apiClient';
-import { resolveEntityId } from './entityService';
+import { resolveEntityId, getCachedEntityData } from './entityService';
 
 export async function fetchTransactions(filters: TransactionFilters): Promise<Transaction[]> {
   const { entryType, fromDate, toDate } = filters;
@@ -67,17 +67,138 @@ export interface PaymentTypesResponse {
   paymentTypes: PaymentType[];
 }
 
+let cachedPaymentTypes: PaymentType[] | null = null;
+
+export function getCachedPaymentTypes(): PaymentType[] | null {
+  return cachedPaymentTypes;
+}
+
+export function setCachedPaymentTypes(types: PaymentType[] | null): void {
+  cachedPaymentTypes = types;
+}
+
+export function clearPaymentTypesCache(): void {
+  cachedPaymentTypes = null;
+}
+
+export function normalizePaymentTypes(rawList: unknown): PaymentType[] {
+  if (!Array.isArray(rawList)) return [];
+  const results: PaymentType[] = [];
+  for (let index = 0; index < rawList.length; index++) {
+    const item = rawList[index];
+    if (typeof item === 'string') {
+      const trimmed = item.trim();
+      if (trimmed) {
+        results.push({
+          paymentTypeId: `pt-${trimmed}-${index}`,
+          paymentType: trimmed,
+          name: trimmed,
+        });
+      }
+      continue;
+    }
+    if (typeof item !== 'object' || item === null) continue;
+    const rec = item as Record<string, unknown>;
+    const paymentType =
+      (typeof rec.paymentType === 'string' && rec.paymentType.trim()) ||
+      (typeof rec.paymentTypeName === 'string' && rec.paymentTypeName.trim()) ||
+      (typeof rec.name === 'string' && rec.name.trim()) ||
+      (typeof rec.type === 'string' && rec.type.trim()) ||
+      '';
+    if (!paymentType) continue;
+
+    const paymentTypeId =
+      (typeof rec.paymentTypeId === 'string' && rec.paymentTypeId.trim()) ||
+      (typeof rec.id === 'string' && rec.id.trim()) ||
+      (typeof rec._id === 'string' && rec._id.trim()) ||
+      `pt-${paymentType}-${index}`;
+
+    const balance =
+      typeof rec.balance === 'number'
+        ? rec.balance
+        : typeof rec.balValue === 'number'
+          ? rec.balValue
+          : typeof rec.amount === 'number'
+            ? rec.amount
+            : typeof rec.openingBalance === 'number'
+              ? rec.openingBalance
+              : typeof rec.balance === 'string' && !isNaN(Number(rec.balance))
+                ? Number(rec.balance)
+                : typeof rec.openingBalance === 'string' && !isNaN(Number(rec.openingBalance))
+                  ? Number(rec.openingBalance)
+                  : undefined;
+
+    results.push({
+      ...rec,
+      paymentTypeId,
+      paymentType,
+      name: paymentType,
+      balance,
+    });
+  }
+  return results;
+}
+
 export async function fetchPaymentTypes(
-  accountingEntityId?: string
+  accountingEntityId?: string,
+  forceRefresh = false
 ): Promise<PaymentType[]> {
+  if (cachedPaymentTypes && cachedPaymentTypes.length > 0 && !forceRefresh && !accountingEntityId) {
+    return cachedPaymentTypes;
+  }
   const resolvedId = await resolveEntityId(accountingEntityId);
   if (!resolvedId) {
-    return [];
+    const entityData = getCachedEntityData();
+    if (entityData && Array.isArray(entityData.paymentTypes) && entityData.paymentTypes.length > 0) {
+      const fallbackList = normalizePaymentTypes(entityData.paymentTypes);
+      if (fallbackList.length > 0) {
+        cachedPaymentTypes = fallbackList;
+        return fallbackList;
+      }
+    }
+    return cachedPaymentTypes || [];
   }
-  const data = await apiRequest<PaymentTypesResponse>(
-    `/payment-types/${encodeURIComponent(resolvedId)}`
-  );
-  return data?.paymentTypes || [];
+  try {
+    const data = await apiRequest<unknown>(
+      `/payment-types/${encodeURIComponent(resolvedId)}`
+    );
+    let list: PaymentType[] = [];
+    if (Array.isArray(data)) {
+      list = normalizePaymentTypes(data);
+    } else if (typeof data === 'object' && data !== null) {
+      const rec = data as Record<string, unknown>;
+      if (Array.isArray(rec.paymentTypes)) {
+        list = normalizePaymentTypes(rec.paymentTypes);
+      } else if (Array.isArray(rec.data)) {
+        list = normalizePaymentTypes(rec.data);
+      }
+    }
+
+    if (list.length === 0) {
+      const entityData = getCachedEntityData();
+      if (entityData && Array.isArray(entityData.paymentTypes) && entityData.paymentTypes.length > 0) {
+        list = normalizePaymentTypes(entityData.paymentTypes);
+      }
+    }
+
+    if (list.length > 0) {
+      cachedPaymentTypes = list;
+    }
+    return list.length > 0 ? list : (cachedPaymentTypes || []);
+  } catch (err) {
+    if (__DEV__) {
+      console.warn('[transactionService] Failed to fetch payment types:', err);
+    }
+    const entityData = getCachedEntityData();
+    if (entityData && Array.isArray(entityData.paymentTypes) && entityData.paymentTypes.length > 0) {
+      const fallbackList = normalizePaymentTypes(entityData.paymentTypes);
+      if (fallbackList.length > 0) {
+        cachedPaymentTypes = fallbackList;
+        return fallbackList;
+      }
+    }
+    return cachedPaymentTypes || [];
+  }
 }
 
 export interface CreateReportRequestPayload {

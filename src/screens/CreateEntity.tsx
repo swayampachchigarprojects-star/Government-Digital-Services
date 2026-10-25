@@ -23,6 +23,7 @@ import {
   PaymentTypeEntry,
   CreateEntityPayload,
 } from '../services/entityService';
+import { fetchPaymentTypes } from '../services/transactionService';
 
 const GUJARAT_DISTRICTS = [
   'Ahmedabad',
@@ -198,6 +199,13 @@ export function CreateEntity({ onCancel, onCreateSuccess }: CreateEntityProps) {
       const createdEntityId = extractEntityId(result);
       if (createdEntityId) {
         await setEntityId(createdEntityId);
+        try {
+          await fetchPaymentTypes(createdEntityId, true);
+        } catch (err) {
+          if (__DEV__) {
+            console.warn('[CreateEntity] Error prefetching payment types:', err);
+          }
+        }
       }
 
       // Success -> navigate to Dashboard
