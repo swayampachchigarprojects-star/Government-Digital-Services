@@ -16,6 +16,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { apiRequest } from '../services/apiClient';
 import { fetchPaymentTypes, PaymentType } from '../services/transactionService';
+import { CustomDatePicker } from '../components/CustomDatePicker';
 
 interface ExpenseEntryScreenProps {
   onBack: () => void;
@@ -74,6 +75,10 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
   const [paymentTypeId, setPaymentTypeId] = useState('');
   const [paymentTypeError, setPaymentTypeError] = useState('');
   const [paymentTypeDropdownVisible, setPaymentTypeDropdownVisible] = useState(false);
+
+  // Date state
+  const [selectedDate, setSelectedDate] = useState('');
+  const [dateError, setDateError] = useState('');
 
   // Dropdown visibility
   const [typeDropdownVisible, setTypeDropdownVisible] = useState(false);
@@ -185,7 +190,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
           const item: TxnCreationRequest = {
             transactionType: 'EXPENSE',
             transactionHeadCode: code,
-            date: new Date().toISOString().split('T')[0],
+            date: selectedDate,
             amount: parseFloat(subtypeAmounts[code] || '0'),
             paymentTypeId: paymentTypeId,
           };
@@ -282,6 +287,13 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       setPaymentTypeError('');
     }
 
+    if (!selectedDate) {
+      setDateError(t('Date is required'));
+      isValid = false;
+    } else {
+      setDateError('');
+    }
+
     return isValid;
   };
 
@@ -306,6 +318,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       setExpenseSubTypes([]);
       setSubtypeAmounts({});
       setPaymentTypeId('');
+      setSelectedDate('');
       setRemarks('');
       setRefId('');
 
@@ -314,6 +327,7 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
       setSubtypeError('');
       setAmountErrors({});
       setPaymentTypeError('');
+      setDateError('');
 
       // Show success message
       triggerToast(
@@ -511,6 +525,22 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
               modalTitle={t('Select Payment Type Modal Title')}
             />
 
+            {/* Select Date Picker */}
+            <View style={styles.formGroup}>
+              <CustomDatePicker
+                label={t('Select Date')}
+                value={selectedDate}
+                placeholder={t('Select Date')}
+                onSelect={(date) => {
+                  setSelectedDate(date);
+                  setDateError('');
+                }}
+                error={dateError}
+                modalTitle={t('Select Date')}
+                maxDate={new Date()}
+              />
+            </View>
+
             {/* Remarks Text Area */}
             <View style={styles.formGroup}>
               <View style={styles.labelRow}>
@@ -582,7 +612,6 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{t('Confirm Expense Entry')}</Text>
-            <Text style={styles.modalSubtitle}>{t('Please verify the transaction details below before committing to database.')}</Text>
 
             <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
               <View style={styles.modalDetails}>
@@ -598,17 +627,28 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
                 </View>
                 <View style={styles.modalRow}>
                   <Text style={styles.modalLabel}>{t('Amount')}</Text>
-                  <View>
+                  <View style={styles.modalSubtypeAmountList}>
                     {expenseSubtypeCodes.map((code) => {
                       const subtype = expenseSubTypes.find((item) => item.txnCode === code);
+                      const displayName = subtype ? t(subtype.txnName) : code;
                       const value = parseFloat(subtypeAmounts[code] || '0') || 0;
                       return (
-                        <Text key={code} style={[styles.modalValue, { color: '#EF4444' }]}>
-                          {`${subtype ? t(subtype.txnName) : code}: ₹ ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                        </Text>
+                        <View key={code} style={styles.modalSubtypeRow}>
+                          <Text style={styles.modalSubtypeLabel}>{displayName}</Text>
+                          <Text style={[styles.modalSubtypeAmount, { color: '#EF4444' }]}>
+                            ₹ {value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </Text>
+                        </View>
                       );
                     })}
-                    <Text style={[styles.modalAmount, { color: '#EF4444' }]}>₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+                    <View style={[styles.modalSubtypeRow, styles.modalTotalRow]}>
+                      <Text style={[styles.modalSubtypeLabel, styles.modalTotalLabel]}>
+                        {t('Total Balance')}
+                      </Text>
+                      <Text style={[styles.modalAmount, styles.modalTotalAmount, { color: '#EF4444' }]}>
+                        ₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Text>
+                    </View>
                   </View>
                 </View>
                 <View style={styles.modalRow}>
@@ -621,6 +661,10 @@ export function ExpenseEntryScreen({ onBack }: ExpenseEntryScreenProps) {
                         '-'
                       : '-'}
                   </Text>
+                </View>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>{t('Date')}</Text>
+                  <Text style={styles.modalValue}>{selectedDate || '-'}</Text>
                 </View>
                 {!!remarks && (
                   <View style={styles.modalRow}>
@@ -1168,6 +1212,44 @@ const styles = StyleSheet.create({
     color: '#173B63',
   },
   modalAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalSubtypeAmountList: {
+    width: '100%',
+    gap: 4,
+    marginTop: 4,
+  },
+  modalSubtypeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  modalSubtypeLabel: {
+    fontSize: 13,
+    color: '#354052',
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 8,
+  },
+  modalSubtypeAmount: {
+    fontSize: 14,
+    color: '#173B63',
+    fontWeight: '600',
+  },
+  modalTotalRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#D8E2EC',
+    paddingTop: 8,
+    marginTop: 4,
+  },
+  modalTotalLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#173B63',
+  },
+  modalTotalAmount: {
     fontSize: 16,
     fontWeight: '700',
   },

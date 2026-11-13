@@ -8,6 +8,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -138,9 +139,11 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
                 >
                   <MaterialIcons name="arrow-back" size={24} color="#173B63" />
                 </TouchableOpacity> */}
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>GS</Text>
-                </View>
+                <Image
+                  source={require('../../assets/splash-icon.png')}
+                  style={styles.badge}
+                  resizeMode="contain"
+                />
                 <View style={styles.titleContainer}>
                   <Text style={styles.headerTitle}>{t('Lekha')}</Text>
                   <Text style={styles.headerSubtitle}>{t('Accounting Services')}</Text>
@@ -341,7 +344,7 @@ export function ServicesScreen({ onBack, onLogout, onNavigateToScreen }: Service
                     {/* Grid Rows */}
                     {transactions.map((txn, index) => {
                       const isIncome = txn.transactionType === 'INCOME';
-                      const rawHead = txn.transactionHead || txn.transactionHeadName || txn.transactionHeadCode || '-';
+                      const rawHead = txn.transactionHead || '-';
                       const displayHead = t(rawHead) || rawHead;
                       const formattedAmount = Number(txn.amount || 0).toLocaleString('en-IN', {
                         minimumFractionDigits: 2,
@@ -593,15 +596,6 @@ const styles = StyleSheet.create({
   badge: {
     width: 42,
     height: 42,
-    borderRadius: 21,
-    backgroundColor: '#0B5CAD',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#0B5CAD',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
     marginRight: 12,
   },
   badgeText: {

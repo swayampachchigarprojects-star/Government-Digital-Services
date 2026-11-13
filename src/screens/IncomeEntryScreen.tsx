@@ -16,6 +16,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { apiRequest } from '../services/apiClient';
 import { fetchPaymentTypes, PaymentType } from '../services/transactionService';
+import { CustomDatePicker } from '../components/CustomDatePicker';
 
 interface IncomeEntryScreenProps {
   onBack: () => void;
@@ -81,6 +82,10 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
   const [paymentTypeId, setPaymentTypeId] = useState('');
   const [paymentTypeError, setPaymentTypeError] = useState('');
   const [paymentTypeDropdownVisible, setPaymentTypeDropdownVisible] = useState(false);
+
+  // Date state
+  const [selectedDate, setSelectedDate] = useState('');
+  const [dateError, setDateError] = useState('');
 
   // Fetch Income Types
   const fetchIncomeTypes = async () => {
@@ -159,7 +164,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
           const item: TxnCreationRequest = {
             transactionType: 'INCOME',
             transactionHeadCode: code,
-            date: new Date().toISOString().split('T')[0],
+            date: selectedDate,
             amount: parseFloat(subtypeAmounts[code] || '0'),
             paymentTypeId: paymentTypeId,
           };
@@ -276,6 +281,13 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setPaymentTypeError('');
     }
 
+    if (!selectedDate) {
+      setDateError(t('Date is required'));
+      isValid = false;
+    } else {
+      setDateError('');
+    }
+
     return isValid;
   };
 
@@ -300,6 +312,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setIncomeSubTypes([]);
       setSubtypeAmounts({});
       setPaymentTypeId('');
+      setSelectedDate('');
       setRemarks('');
       setRefId('');
 
@@ -308,6 +321,7 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
       setSubtypeError('');
       setAmountErrors({});
       setPaymentTypeError('');
+      setDateError('');
 
       // Show success message
       triggerToast(
@@ -518,6 +532,22 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
               modalTitle={t('Select Payment Type Modal Title')}
             />
 
+            {/* Select Date Picker */}
+            <View style={styles.formGroup}>
+              <CustomDatePicker
+                label={t('Select Date')}
+                value={selectedDate}
+                placeholder={t('Select Date')}
+                onSelect={(date) => {
+                  setSelectedDate(date);
+                  setDateError('');
+                }}
+                error={dateError}
+                modalTitle={t('Select Date')}
+                maxDate={new Date()}
+              />
+            </View>
+
             {/* Remarks Text Area */}
             <View style={styles.formGroup}>
               <View style={styles.labelRow}>
@@ -589,7 +619,6 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{t('Confirm Income Entry')}</Text>
-            <Text style={styles.modalSubtitle}>{t('Please verify the transaction details below before committing to database.')}</Text>
 
             <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
               <View style={styles.modalDetails}>
@@ -605,35 +634,29 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                 </View>
                 <View style={styles.modalRow}>
                   <Text style={styles.modalLabel}>{t('Amount')}</Text>
-                  {incomeSubtypeCodes.length === 1 ? (
-                    <Text style={styles.modalAmount}>
-                      ₹ {(parseFloat(subtypeAmounts[incomeSubtypeCodes[0]] || '0') || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </Text>
-                  ) : (
-                    <View style={styles.modalSubtypeAmountList}>
-                      {incomeSubtypeCodes.map((code) => {
-                        const subtype = incomeSubTypes.find((item) => item.txnCode === code);
-                        const displayName = subtype ? t(subtype.txnName) : code;
-                        const amtVal = parseFloat(subtypeAmounts[code] || '0') || 0;
-                        return (
-                          <View key={code} style={styles.modalSubtypeRow}>
-                            <Text style={styles.modalSubtypeLabel}>{displayName}</Text>
-                            <Text style={styles.modalSubtypeAmount}>
-                              ₹ {amtVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </Text>
-                          </View>
-                        );
-                      })}
-                      <View style={[styles.modalSubtypeRow, styles.modalTotalRow]}>
-                        <Text style={[styles.modalSubtypeLabel, styles.modalTotalLabel]}>
-                          {t('Total Balance')}
-                        </Text>
-                        <Text style={[styles.modalAmount, styles.modalTotalAmount]}>
-                          ₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </Text>
-                      </View>
+                  <View style={styles.modalSubtypeAmountList}>
+                    {incomeSubtypeCodes.map((code) => {
+                      const subtype = incomeSubTypes.find((item) => item.txnCode === code);
+                      const displayName = subtype ? t(subtype.txnName) : code;
+                      const amtVal = parseFloat(subtypeAmounts[code] || '0') || 0;
+                      return (
+                        <View key={code} style={styles.modalSubtypeRow}>
+                          <Text style={styles.modalSubtypeLabel}>{displayName}</Text>
+                          <Text style={styles.modalSubtypeAmount}>
+                            ₹ {amtVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                    <View style={[styles.modalSubtypeRow, styles.modalTotalRow]}>
+                      <Text style={[styles.modalSubtypeLabel, styles.modalTotalLabel]}>
+                        {t('Total Balance')}
+                      </Text>
+                      <Text style={[styles.modalAmount, styles.modalTotalAmount]}>
+                        ₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </Text>
                     </View>
-                  )}
+                  </View>
                 </View>
                 <View style={styles.modalRow}>
                   <Text style={styles.modalLabel}>{t('Payment Type')}</Text>
@@ -645,6 +668,10 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
                         '-'
                       : '-'}
                   </Text>
+                </View>
+                <View style={styles.modalRow}>
+                  <Text style={styles.modalLabel}>{t('Date')}</Text>
+                  <Text style={styles.modalValue}>{selectedDate || '-'}</Text>
                 </View>
                 {!!remarks && (
                   <View style={styles.modalRow}>

@@ -8,6 +8,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -177,9 +178,11 @@ export function DashboardScreen({
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.logoAndTitle}>
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>GS</Text>
-                </View>
+                <Image
+                  source={require('../../assets/splash-icon.png')}
+                  style={styles.badge}
+                  resizeMode="contain"
+                />
                 <View style={styles.titleContainer}>
                   <Text style={styles.headerTitle}>{t('Lekha')}</Text>
                   <Text style={styles.headerSubtitle}>{t('Accounting Services')}</Text>
@@ -513,15 +516,6 @@ const styles = StyleSheet.create({
   badge: {
     width: 42,
     height: 42,
-    borderRadius: 21,
-    backgroundColor: '#0B5CAD',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#0B5CAD',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
     marginRight: 12,
   },
   badgeText: {

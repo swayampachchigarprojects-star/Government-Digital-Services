@@ -1,4 +1,5 @@
 import { apiRequest } from './apiClient';
+import { signOutFromGoogle } from './googleAuth';
 
 export interface GoogleLoginRequest {
   idToken: string;
@@ -73,7 +74,6 @@ async function exchange(path: string, payload: GoogleLoginRequest | GoogleSignup
   }
   return authenticationResponse;
 }
-
 export const authService = {
   loginWithGoogle(idToken: string): Promise<AuthenticationResponse> {
     return exchange('/auth/login/google', { idToken });
@@ -82,9 +82,13 @@ export const authService = {
     return exchange('/auth/signup/google', { idToken });
   },
   async logout(): Promise<void> {
-    await apiRequest('/auth/logout', {
-      method: 'POST',
-      authenticated: true,
-    });
+    try {
+      await apiRequest('/auth/logout', {
+        method: 'POST',
+        authenticated: true,
+      });
+    } finally {
+      await signOutFromGoogle().catch(() => {});
+    }
   },
 };

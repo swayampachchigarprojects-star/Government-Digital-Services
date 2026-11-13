@@ -276,7 +276,6 @@ export function IncomeEntryScreen({ onBack }: IncomeEntryScreenProps) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Confirm Income Entry</Text>
-            <Text style={styles.modalSubtitle}>Please verify the transaction details below before committing to database.</Text>
 
             <View style={styles.modalDetails}>
               <View style={styles.modalRow}>

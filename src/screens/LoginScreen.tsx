@@ -141,7 +141,7 @@ export function LoginScreen({ onLoginSuccess, onNavigateToCreateEntity }: LoginS
                 activeOpacity={0.8}
               >
                 <Image
-                  source={{ uri: 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg' }}
+                  source={require('../../assets/google-logo.png')}
                   style={styles.googleIcon}
                   resizeMode="contain"
                 />
