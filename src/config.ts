@@ -1,4 +1,4 @@
-const apiBaseUrl = 'http://3.26.236.117:8080';
+const apiBaseUrl = 'http://32.237.38.250:8080';
 
 export const config = {
   apiBaseUrl,

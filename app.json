@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Lekha",
-    "slug": "Lekha",
+    "name": "my-app",
+    "slug": "my-app",
     "version": "1.0.0",
     "scheme": "gramledger",
     "orientation": "portrait",
