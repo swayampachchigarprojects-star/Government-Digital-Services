@@ -3,12 +3,16 @@ import { config } from '../config';
 export class ApiError extends Error {
   readonly status: number;
   readonly details: unknown;
+  readonly endpoint?: string;
+  readonly url?: string;
 
-  constructor(status: number, message: string, details?: unknown) {
+  constructor(status: number, message: string, details?: unknown, endpoint?: string, url?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.details = details;
+    this.endpoint = endpoint;
+    this.url = url;
   }
 }
 
@@ -66,11 +70,18 @@ export async function apiRequestWithResponse<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
+  const fullUrl = `${config.apiBaseUrl}${path}`;
   let response: Response;
   try {
-    response = await fetch(`${config.apiBaseUrl}${path}`, { ...requestInit, headers });
-  } catch {
-    throw new ApiError(0, 'Unable to connect to the server. Please try again.');
+    response = await fetch(fullUrl, { ...requestInit, headers });
+  } catch (err: any) {
+    throw new ApiError(
+      0,
+      `Unable to connect to the server: ${err?.message || String(err)}`,
+      err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : err,
+      path,
+      fullUrl,
+    );
   }
 
   const bodyText = await response.text();
@@ -86,7 +97,7 @@ export async function apiRequestWithResponse<T>(
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, getErrorMessage(response.status), body);
+    throw new ApiError(response.status, getErrorMessage(response.status), body, path, fullUrl);
   }
 
   return {
