@@ -15,7 +15,8 @@ export interface TransactionFilters {
   toDate: string; // YYYY-MM-DD
 }
 
-import { Platform, Linking } from 'react-native';
+import { Platform } from 'react-native';
+import { File, Paths } from 'expo-file-system';
 import { config } from '../config';
 import { apiRequest, apiRequestWithResponse, getAuthToken, ApiError } from './apiClient';
 import { resolveEntityId, getCachedEntityData } from './entityService';
@@ -253,15 +254,116 @@ export async function fetchReports(): Promise<GetReportsResponse> {
   return { reports: [] };
 }
 
+function getReportFilename(reportId: string, disposition?: string | null): string {
+  const suppliedFilename = disposition?.match(/filename\*?=(?:UTF-8''|")?([^";\n]+)/i)?.[1];
+  return (suppliedFilename || `report-${reportId}.pdf`)
+    .replace(/["']/g, '')
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
+    .trim() || `report-${reportId}.pdf`;
+}
+
+function getDownloadUrl(data: unknown, baseUrl: string): URL | null {
+  if (!data || typeof data !== 'object') return null;
+
+  const reportData = data as Record<string, unknown>;
+  const rawUrl = reportData.downloadUrl ?? reportData.url ?? reportData.fileUrl;
+  if (typeof rawUrl !== 'string' || !rawUrl.trim()) return null;
+
+  const downloadUrl = new URL(rawUrl, baseUrl);
+  if (downloadUrl.protocol !== 'https:' && downloadUrl.protocol !== 'http:') {
+    throw new ApiError(200, 'The report download URL is invalid.');
+  }
+  return downloadUrl;
+}
+
+async function downloadReportToAndroidDownloads(
+  url: string,
+  headers: Record<string, string>,
+  reportId: string,
+  allowSignedUrl = true,
+): Promise<void> {
+  const ReactNativeBlobUtil = (await import('react-native-blob-util')).default;
+  let response;
+  try {
+    response = await ReactNativeBlobUtil.config({ fileCache: true }).fetch('GET', url, headers);
+  } catch {
+    throw new ApiError(0, 'Unable to connect to the server. Please try again.');
+  }
+
+  if (!response.ok) {
+    let errorDetails: unknown;
+    try {
+      const errorText = await response.text();
+      if (errorText) {
+        try {
+          errorDetails = JSON.parse(errorText);
+        } catch {
+          errorDetails = errorText;
+        }
+      }
+    } finally {
+      await response.flush();
+    }
+    throw new ApiError(response.status, 'The report could not be downloaded.', errorDetails);
+  }
+
+  const contentType = response.headers['content-type'] || '';
+  if (contentType.includes('json')) {
+    let downloadUrl: URL | null;
+    try {
+      downloadUrl = getDownloadUrl(await response.json(), url);
+    } finally {
+      await response.flush();
+    }
+
+    if (!allowSignedUrl || !downloadUrl) {
+      throw new ApiError(response.status, 'The report response did not contain a downloadable file.');
+    }
+
+    const apiOrigin = new URL(config.apiBaseUrl).origin;
+    const signedUrlHeaders: Record<string, string> = {};
+    if (downloadUrl.origin === apiOrigin && headers.Authorization) {
+      signedUrlHeaders.Authorization = headers.Authorization;
+    }
+    await downloadReportToAndroidDownloads(downloadUrl.href, signedUrlHeaders, reportId, false);
+    return;
+  }
+
+  const path = response.path();
+  if (!path) {
+    await response.flush();
+    throw new ApiError(response.status, 'The report could not be saved.');
+  }
+
+  try {
+    await ReactNativeBlobUtil.media.addDownload({
+      title: getReportFilename(reportId, response.headers['content-disposition']),
+      description: 'Your requested report',
+      mime: contentType.split(';', 1)[0].trim() || 'application/pdf',
+      path,
+      notification: true,
+    });
+  } finally {
+    await response.flush();
+  }
+}
+
 export async function downloadReport(reportId: string): Promise<void> {
   const token = getAuthToken();
+  if (!token) {
+    throw new ApiError(401, 'You are not authorized to perform this action.');
+  }
+
   const url = `${config.apiBaseUrl}/reports/${encodeURIComponent(reportId)}/download`;
 
   const headers: Record<string, string> = {
-    Accept: '*/*',
+    Accept: 'application/pdf, application/json, */*',
+    Authorization: `Bearer ${token}`,
   };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+
+  if (Platform.OS === 'android') {
+    await downloadReportToAndroidDownloads(url, headers, reportId);
+    return;
   }
 
   let response: Response;
@@ -277,7 +379,12 @@ export async function downloadReport(reportId: string): Promise<void> {
   if (!response.ok) {
     let errorDetails: unknown;
     try {
-      errorDetails = await response.json();
+      const errorText = await response.text();
+      try {
+        errorDetails = errorText ? JSON.parse(errorText) : undefined;
+      } catch {
+        errorDetails = errorText || undefined;
+      }
     } catch {
       errorDetails = undefined;
     }
@@ -286,51 +393,47 @@ export async function downloadReport(reportId: string): Promise<void> {
 
   const contentType = response.headers.get('content-type') || '';
 
-  // Case 1: Response contains JSON with a direct download/signed URL
-  if (contentType.includes('application/json')) {
+  if (contentType.includes('json')) {
     const data = await response.json();
-    const downloadUrl = (data && (data.downloadUrl || data.url || data.fileUrl)) as string | undefined;
-    if (downloadUrl && typeof downloadUrl === 'string') {
-      if (Platform.OS === 'web') {
-        window.open(downloadUrl, '_blank');
-      } else {
-        await Linking.openURL(downloadUrl);
-      }
+    const downloadUrl = getDownloadUrl(data, url);
+    if (!downloadUrl) {
+      throw new ApiError(response.status, 'The report response did not contain a downloadable file.');
+    }
+
+    if (Platform.OS === 'web') {
+      window.location.assign(downloadUrl.href);
       return;
+    }
+
+    const signedHeaders: Record<string, string> = {};
+    if (downloadUrl.origin === new URL(config.apiBaseUrl).origin) {
+      signedHeaders.Authorization = `Bearer ${token}`;
+    }
+    try {
+      response = await fetch(downloadUrl.href, { headers: signedHeaders });
+    } catch {
+      throw new ApiError(0, 'Unable to connect to the server. Please try again.');
+    }
+    if (!response.ok) {
+      throw new ApiError(response.status, 'The report could not be downloaded.');
     }
   }
 
-  // Case 2: Binary stream / file download
+  const filename = getReportFilename(reportId, response.headers.get('content-disposition'));
+
   if (Platform.OS === 'web') {
     const blob = await response.blob();
     const blobUrl = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = blobUrl;
-
-    let filename = `report-${reportId}.pdf`;
-    const disposition = response.headers.get('content-disposition');
-    if (disposition && disposition.includes('filename=')) {
-      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-      if (match && match[1]) {
-        filename = match[1].replace(/['"]/g, '').trim();
-      }
-    }
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(blobUrl);
     document.body.removeChild(a);
+    window.setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
   } else {
-    // React Native Mobile
-    const mobileUrl = token ? `${url}?token=${encodeURIComponent(token)}` : url;
-    const canOpen = await Linking.canOpenURL(mobileUrl);
-    if (canOpen) {
-      await Linking.openURL(mobileUrl);
-    } else {
-      await Linking.openURL(url);
-    }
+    const file = new File(Paths.document, filename);
+    file.create({ intermediates: true, overwrite: true });
+    file.write(new Uint8Array(await response.arrayBuffer()));
   }
 }
-
-
-
