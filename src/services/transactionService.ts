@@ -254,13 +254,7 @@ export async function fetchReports(): Promise<GetReportsResponse> {
   return { reports: [] };
 }
 
-function getReportFilename(reportId: string, disposition?: string | null): string {
-  const suppliedFilename = disposition?.match(/filename\*?=(?:UTF-8''|")?([^";\n]+)/i)?.[1];
-  return (suppliedFilename || `report-${reportId}.pdf`)
-    .replace(/["']/g, '')
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
-    .trim() || `report-${reportId}.pdf`;
-}
+const REPORT_FILENAME = 'lekha-report.pdf';
 
 function getDownloadUrl(data: unknown, baseUrl: string): URL | null {
   if (!data || typeof data !== 'object') return null;
@@ -335,14 +329,19 @@ async function downloadReportToAndroidDownloads(
     throw new ApiError(response.status, 'The report could not be saved.');
   }
 
+  const savedPath = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/lekha-report-${response.taskId}.pdf`;
   try {
+    await ReactNativeBlobUtil.fs.cp(path, savedPath);
     await ReactNativeBlobUtil.media.addDownload({
-      title: getReportFilename(reportId, response.headers['content-disposition']),
+      title: REPORT_FILENAME,
       description: 'Your requested report',
       mime: contentType.split(';', 1)[0].trim() || 'application/pdf',
-      path,
+      path: savedPath,
       notification: true,
     });
+  } catch (error) {
+    await ReactNativeBlobUtil.fs.unlink(savedPath);
+    throw error;
   } finally {
     await response.flush();
   }
@@ -419,7 +418,7 @@ export async function downloadReport(reportId: string): Promise<void> {
     }
   }
 
-  const filename = getReportFilename(reportId, response.headers.get('content-disposition'));
+  const filename = REPORT_FILENAME;
 
   if (Platform.OS === 'web') {
     const blob = await response.blob();
