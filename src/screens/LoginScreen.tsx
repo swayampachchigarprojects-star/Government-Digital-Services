@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../../src/contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { config } from '../config';
 import { ApiError } from '../services/apiClient';
 import { authService } from '../services/authService';
 import { useGoogleAuth } from '../services/googleAuth';
@@ -36,6 +37,7 @@ export function LoginScreen({ onLoginSuccess, onNavigateToCreateEntity }: LoginS
   const handleGoogleAuth = async () => {
     if (isAuthenticating) return;
     setIsAuthenticating(true);
+    let currentEndpoint = `${config.apiBaseUrl}/auth/signup/google`;
     try {
       const googleResult = await googleAuth.signIn();
       if (googleResult.type === 'cancelled') {
@@ -46,12 +48,14 @@ export function LoginScreen({ onLoginSuccess, onNavigateToCreateEntity }: LoginS
         Alert.alert(t('Sign In'), t(googleResult.message));
         return;
       }
+      currentEndpoint = `${config.apiBaseUrl}/auth/signup/google`;
       const session = await authService.signupWithGoogle(
         googleResult.idToken,
       );
       await setSession(session);
 
       // Immediately after successful Login, call GET http://192.168.0.248:8080/accounting-entity
+      currentEndpoint = `${config.apiBaseUrl}/accounting-entity`;
       const entityResult = await getAccountingEntity();
       if (entityResult.exists) {
         let entityId = entityResult.accountEntityId;
@@ -77,6 +81,7 @@ export function LoginScreen({ onLoginSuccess, onNavigateToCreateEntity }: LoginS
         if (entityId) {
           await setEntityId(entityId);
           try {
+            currentEndpoint = `${config.apiBaseUrl}/accounting-entities/${entityId}/payment-types`;
             await fetchPaymentTypes(entityId, true);
           } catch (err) {
             if (__DEV__) {
@@ -95,16 +100,36 @@ export function LoginScreen({ onLoginSuccess, onNavigateToCreateEntity }: LoginS
         }
       }
     } catch (error) {
-      const message = error instanceof ApiError && error.status === 403
-        ? t('Your account is not registered. Please contact your administrator.')
-        : error instanceof ApiError && error.status === 0
-          ? t('Unable to connect to the server. Please try again.')
-          : error instanceof Error && error.message === 'The authentication response was invalid.'
-            ? t('Unable to sign in with Google. Please try again.')
-            : error instanceof Error
-              ? error.message
-              : t('Unable to sign in with Google. Please try again.');
-      Alert.alert(t('Sign In'), message);
+      if (__DEV__) {
+        console.error('[LoginScreen] Sign-in error:', error);
+      }
+
+      const endpoint =
+        error instanceof ApiError && (error.url || error.endpoint)
+          ? error.url || `${config.apiBaseUrl}${error.endpoint}`
+          : currentEndpoint || `${config.apiBaseUrl}/auth/signup/google`;
+
+      let fullErrorString = '';
+      if (error instanceof Error) {
+        const errorProps: Record<string, unknown> = {};
+        for (const prop of Object.getOwnPropertyNames(error)) {
+          errorProps[prop] = (error as any)[prop];
+        }
+        fullErrorString = JSON.stringify(errorProps, null, 2);
+      } else {
+        try {
+          fullErrorString = JSON.stringify(error, null, 2);
+        } catch {
+          fullErrorString = String(error);
+        }
+      }
+
+      const statusText = error instanceof ApiError ? `Status Code: ${error.status}\n` : '';
+      const messageText = error instanceof Error ? `Message: ${error.message}\n` : '';
+
+      const alertMessage = `API Endpoint:\n${endpoint}\n\nBase URL:\n${config.apiBaseUrl}\n\n${statusText}${messageText}\nWhole Error:\n${fullErrorString}`;
+
+      Alert.alert(t('Sign In'), alertMessage);
     } finally {
       setIsAuthenticating(false);
     }
