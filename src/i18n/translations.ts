@@ -264,6 +264,11 @@ export const translations = {
     "Unable to download report. Please try again.": "અહેવાલ ડાઉનલોડ કરવામાં અસમર્થ. કૃપા કરીને ફરી પ્રયાસ કરો.",
     "The requested report was not found.": "વિનંતી કરેલ અહેવાલ મળ્યો નથી.",
     "The report could not be downloaded.": "અહેવાલ ડાઉનલોડ કરી શકાયો નથી.",
+    "The report could not be saved.": "અહેવાલ સંગ્રહ કરી શકાયો નથી.",
+    "The report response did not contain a downloadable file.": "અહેવાલના પ્રતિસાદમાં ડાઉનલોડ કરી શકાય તેવી ફાઇલ નથી.",
+    "The report download URL is invalid.": "અહેવાલ ડાઉનલોડ URL અમાન્ય છે.",
+    "Storage permission is required to save reports.": "અહેવાલો સંગ્રહ કરવા માટે સ્ટોરેજની પરવાનગી જરૂરી છે.",
+    "Please enable storage permission in Settings to save reports.": "અહેવાલો સંગ્રહ કરવા માટે સેટિંગ્સમાં સ્ટોરેજની પરવાનગી સક્રિય કરો.",
 
     // Dashboard
     "Dashboard": "ડેશબોર્ડ",

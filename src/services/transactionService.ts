@@ -15,7 +15,7 @@ export interface TransactionFilters {
   toDate: string; // YYYY-MM-DD
 }
 
-import { Platform } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import { config } from '../config';
 import { apiRequest, apiRequestWithResponse, getAuthToken, ApiError } from './apiClient';
@@ -263,7 +263,12 @@ function getDownloadUrl(data: unknown, baseUrl: string): URL | null {
   const rawUrl = reportData.downloadUrl ?? reportData.url ?? reportData.fileUrl;
   if (typeof rawUrl !== 'string' || !rawUrl.trim()) return null;
 
-  const downloadUrl = new URL(rawUrl, baseUrl);
+  let downloadUrl: URL;
+  try {
+    downloadUrl = new URL(rawUrl, baseUrl);
+  } catch (error) {
+    throw new ApiError(200, 'The report download URL is invalid.', error);
+  }
   if (downloadUrl.protocol !== 'https:' && downloadUrl.protocol !== 'http:') {
     throw new ApiError(200, 'The report download URL is invalid.');
   }
@@ -273,15 +278,27 @@ function getDownloadUrl(data: unknown, baseUrl: string): URL | null {
 async function downloadReportToAndroidDownloads(
   url: string,
   headers: Record<string, string>,
-  reportId: string,
   allowSignedUrl = true,
 ): Promise<void> {
   const ReactNativeBlobUtil = (await import('react-native-blob-util')).default;
+  // Use an epoch timestamp to make temporary staging files easy to identify.
+  const tempFilename = `lekha-report-${Date.now()}.tmp`;
+  const tempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${tempFilename}`;
   let response;
   try {
-    response = await ReactNativeBlobUtil.config({ fileCache: true }).fetch('GET', url, headers);
-  } catch {
-    throw new ApiError(0, 'Unable to connect to the server. Please try again.');
+    response = await ReactNativeBlobUtil.config({ path: tempPath }).fetch('GET', url, headers);
+  } catch (error) {
+    let cleanupError: unknown;
+    try {
+      await ReactNativeBlobUtil.fs.unlink(tempPath);
+    } catch (unlinkError) {
+      cleanupError = unlinkError;
+    }
+    throw new ApiError(
+      0,
+      'Unable to connect to the server. Please try again.',
+      { requestError: error, cleanupError },
+    );
   }
 
   if (!response.ok) {
@@ -302,10 +319,20 @@ async function downloadReportToAndroidDownloads(
   }
 
   const contentType = response.headers['content-type'] || '';
-  if (contentType.includes('json')) {
+  if (contentType.toLowerCase().includes('json')) {
     let downloadUrl: URL | null;
     try {
-      downloadUrl = getDownloadUrl(await response.json(), url);
+      let data: unknown;
+      try {
+        data = await response.json();
+      } catch (error) {
+        throw new ApiError(
+          response.status,
+          'The report response did not contain a downloadable file.',
+          error,
+        );
+      }
+      downloadUrl = getDownloadUrl(data, url);
     } finally {
       await response.flush();
     }
@@ -316,10 +343,11 @@ async function downloadReportToAndroidDownloads(
 
     const apiOrigin = new URL(config.apiBaseUrl).origin;
     const signedUrlHeaders: Record<string, string> = {};
+    // Signed URLs on other hosts must not receive the API bearer token.
     if (downloadUrl.origin === apiOrigin && headers.Authorization) {
       signedUrlHeaders.Authorization = headers.Authorization;
     }
-    await downloadReportToAndroidDownloads(downloadUrl.href, signedUrlHeaders, reportId, false);
+    await downloadReportToAndroidDownloads(downloadUrl.href, signedUrlHeaders, false);
     return;
   }
 
@@ -329,19 +357,31 @@ async function downloadReportToAndroidDownloads(
     throw new ApiError(response.status, 'The report could not be saved.');
   }
 
-  const savedPath = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/lekha-report-${response.taskId}.pdf`;
   try {
-    await ReactNativeBlobUtil.fs.cp(path, savedPath);
-    await ReactNativeBlobUtil.media.addDownload({
-      title: REPORT_FILENAME,
-      description: 'Your requested report',
-      mime: contentType.split(';', 1)[0].trim() || 'application/pdf',
-      path: savedPath,
-      notification: true,
-    });
-  } catch (error) {
-    await ReactNativeBlobUtil.fs.unlink(savedPath);
-    throw error;
+    const mime = contentType.split(';', 1)[0].trim() || 'application/pdf';
+    const androidVersion = Number(Platform.Version);
+    // Legacy external storage needs runtime permission; scoped storage does not.
+    if (androidVersion >= 23 && androidVersion < 29) {
+      const permission = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+      );
+      if (permission !== PermissionsAndroid.RESULTS.GRANTED) {
+        const message = permission === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN
+          ? 'Please enable storage permission in Settings to save reports.'
+          : 'Storage permission is required to save reports.';
+        throw new ApiError(403, message);
+      }
+    }
+    try {
+      // Copy from private cache into the user's public Downloads collection.
+      await ReactNativeBlobUtil.media.copyToMediaStore(
+        { name: REPORT_FILENAME, parentFolder: '', mime },
+        'Download',
+        path,
+      );
+    } catch (error) {
+      throw new ApiError(500, 'The report could not be saved.', error);
+    }
   } finally {
     await response.flush();
   }
@@ -361,7 +401,7 @@ export async function downloadReport(reportId: string): Promise<void> {
   };
 
   if (Platform.OS === 'android') {
-    await downloadReportToAndroidDownloads(url, headers, reportId);
+    await downloadReportToAndroidDownloads(url, headers);
     return;
   }
 
